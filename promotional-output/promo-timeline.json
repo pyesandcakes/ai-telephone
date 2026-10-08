@@ -1,0 +1,62 @@
+[
+  {
+    "shot": 1,
+    "start": 0.0,
+    "end": 4.0,
+    "caption": "AI Telephone. An image becomes language. Language becomes an image."
+  },
+  {
+    "shot": 2,
+    "start": 4.0,
+    "end": 8.5,
+    "caption": "A red umbrella floating above an empty swimming pool at night."
+  },
+  {
+    "shot": 3,
+    "start": 8.5,
+    "end": 17.0,
+    "caption": "The image depicts a serene night scene with a large red umbrella standing on a brick wall near a body of water..."
+  },
+  {
+    "shot": 4,
+    "start": 17.0,
+    "end": 25.5,
+    "caption": "The image depicts a serene dock extending into a calm body of water, leading towards a red-brick building with a pointed roof..."
+  },
+  {
+    "shot": 5,
+    "start": 25.5,
+    "end": 34.0,
+    "caption": "The image captures a serene waterfront scene at dusk, with a wooden dock extending into a calm body of water..."
+  },
+  {
+    "shot": 6,
+    "start": 34.0,
+    "end": 42.5,
+    "caption": "The image depicts a serene waterfront scene during sunset, with a calm body of water reflecting the vibrant hues of the sky..."
+  },
+  {
+    "shot": 7,
+    "start": 42.5,
+    "end": 51.0,
+    "caption": "The image depicts a vibrant city skyline at sunset, with tall skyscrapers reflecting in a calm body of water..."
+  },
+  {
+    "shot": 8,
+    "start": 51.0,
+    "end": 59.5,
+    "caption": "The image depicts a vibrant city skyline at dusk, with tall buildings illuminated in various colors, including purple, pink, and blue..."
+  },
+  {
+    "shot": 9,
+    "start": 59.5,
+    "end": 65.0,
+    "caption": "What survives the translation? Two models. Separate contexts. A continuous chain."
+  },
+  {
+    "shot": 10,
+    "start": 65.0,
+    "end": 69.5,
+    "caption": "Concept and visual inspiration: Jake Elwes. Independent implementation."
+  }
+]

@@ -1,0 +1,10 @@
+{
+  "source_run": "D:\\OneDrive - TU Eindhoven\\CBL\\artifice\\midterm\\ai-telephone\\captures\\b40698a494a64050b5af06ed8f7a70cb",
+  "original_prompt": "A red umbrella floating above an empty swimming pool at night.",
+  "iterations": 12,
+  "video_seconds": 69.5,
+  "resolution": "1920x1080 / 24fps",
+  "poster": "A3 portrait / 300dpi canvas / source images 512px",
+  "edits": "Chronological selected iterations, shortened captions marked excerpt, inference waits removed, silent.",
+  "reference": "https://www.jakeelwes.com/project-sontag.html"
+}

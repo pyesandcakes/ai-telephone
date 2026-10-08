@@ -20,3 +20,7 @@ Use the Mac setup and pre-exhibition procedure in README.md to complete these ha
 ## Automated capture validation
 
 The complete project was moved to D:\OneDrive - TU Eindhoven\CBL\artifice\midterm\ai-telephone. All 11 application/capture tests passed under Python 3.12. The mock capture produced a decodable H.264 MP4, three clean pair frames, subtitle timing, CSV/JSON, transcript and a contact sheet. Real model capture has not been exercised: the required Qwen2.5-VL vision model is not installed on this development computer.
+
+## Real Windows inference and promotional output
+
+A complete 12-iteration real SD-Turbo / Qwen2.5-VL chain was run on the RTX 3060 under Python 3.12 and CUDA PyTorch 2.8.0. All image hashes and feedback links were verified. The live recording and 69.5-second promotional edit decoded without errors; the A3 poster PDF was reopened, rendered and visually checked. Five real browser screenshots were captured. All 11 application/capture tests passed after ensuring the final committed pair is exported. M5 inference remains untested. See PROMOTIONAL-OUTPUT.md for final assets and rerun instructions.

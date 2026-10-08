@@ -100,6 +100,11 @@ def export_assets(folder, records, manifest):
     from PIL import Image, ImageDraw, ImageOps
     assets = folder / "exports"
     assets.mkdir(exist_ok=True)
+    for item in records:
+        pair_path = assets / f"pair-{item['iteration']:03d}.png"
+        if not pair_path.exists():
+            plate(folder / item["image"], item["caption"], item["iteration"],
+                  mock=manifest["demo"]).save(pair_path, dpi=(150, 150))
     save_json(assets / "iterations.json", records)
     with (assets / "iterations.csv").open("w", newline="", encoding="utf-8-sig") as file:
         writer = csv.DictWriter(file, fieldnames=["iteration", "input", "caption", "seed", "seconds", "image", "time", "sha256"])
@@ -270,3 +275,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

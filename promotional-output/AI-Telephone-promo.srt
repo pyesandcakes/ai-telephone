@@ -1,0 +1,39 @@
+1
+00:00:00,000 --> 00:00:04,000
+AI Telephone. An image becomes language. Language becomes an image.
+
+2
+00:00:04,000 --> 00:00:08,500
+A red umbrella floating above an empty swimming pool at night.
+
+3
+00:00:08,500 --> 00:00:17,000
+The image depicts a serene night scene with a large red umbrella standing on a brick wall near a body of water...
+
+4
+00:00:17,000 --> 00:00:25,500
+The image depicts a serene dock extending into a calm body of water, leading towards a red-brick building with a pointed roof...
+
+5
+00:00:25,500 --> 00:00:34,000
+The image captures a serene waterfront scene at dusk, with a wooden dock extending into a calm body of water...
+
+6
+00:00:34,000 --> 00:00:42,500
+The image depicts a serene waterfront scene during sunset, with a calm body of water reflecting the vibrant hues of the sky...
+
+7
+00:00:42,500 --> 00:00:51,000
+The image depicts a vibrant city skyline at sunset, with tall skyscrapers reflecting in a calm body of water...
+
+8
+00:00:51,000 --> 00:00:59,500
+The image depicts a vibrant city skyline at dusk, with tall buildings illuminated in various colors, including purple, pink, and blue...
+
+9
+00:00:59,500 --> 00:01:05,000
+What survives the translation? Two models. Separate contexts. A continuous chain.
+
+10
+00:01:05,000 --> 00:01:09,500
+Concept and visual inspiration: Jake Elwes. Independent implementation.

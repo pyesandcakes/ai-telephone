@@ -24,6 +24,17 @@ async function api(path, data) {
   return result;
 }
 function notice(message) { $("notice").textContent = message || ""; $("notice").hidden = !message; }
+function fitWallText() {
+  if (control || location.pathname === '/image') return;
+  const text = $('wall-text');
+  text.style.fontSize = '';
+  let size = parseFloat(getComputedStyle(text).fontSize);
+  while (text.scrollHeight > text.clientHeight + 1 && size > 16) {
+    size -= 1;
+    text.style.fontSize = `${size}px`;
+  }
+}
+window.addEventListener('resize', fitWallText);
 async function loadFrame(frame) {
   if (!frame) return;
   const key = `${frame.run}:${frame.iteration}`;
@@ -43,6 +54,7 @@ async function loadFrame(frame) {
     $("wall-text").textContent = frame.caption;
   }
   if (!control) $("iteration").textContent = `Iteration ${String(frame.iteration).padStart(3, "0")}`;
+  fitWallText();
   frameKey = key;
 }
 async function showHistory() {
@@ -119,3 +131,4 @@ if (control) {
   };
 }
 poll();
+
