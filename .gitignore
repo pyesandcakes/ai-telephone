@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+runs/
+*.log
+environment-lock.txt
+environment.json
+node_modules/
+screenshots/
+captures/
+.capture-venv/
