@@ -31,8 +31,8 @@ def main():
     from huggingface_hub import snapshot_download
     print("Downloading pinned SD-Turbo weights (first setup requires internet)...")
     snapshot_download(DEFAULTS["image_model"], revision=DEFAULTS["revision"],
-                      allow_patterns=["*.json", "*.txt", "*.safetensors", "*.model"],
-                      ignore_patterns=["*.fp16.*", "*.onnx", "*.msgpack", "sd_turbo.safetensors"])
+                      allow_patterns=["*.json", "*.txt", "*.fp16.safetensors", "*.model"],
+                      ignore_patterns=["*.onnx", "*.msgpack", "sd_turbo.safetensors"])
     info = environment()
     names = [m["name"] for m in info["models"]]
     if DEFAULTS["vision_model"] not in names:

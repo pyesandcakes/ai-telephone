@@ -1,0 +1,78 @@
+{
+  "provenance": "SIMULATED DEMO: procedurally authored artwork and scripted interpretations. No image or vision model was run. Not experimental evidence.",
+  "prompt": "A luminous red ring floating above a dark blue pool at night.",
+  "frames": [
+    {
+      "image": "01.png",
+      "caption": "A luminous red ring floats above a dark blue pool, its reflection trembling across the water."
+    },
+    {
+      "image": "02.png",
+      "caption": "A red halo hovers over rippling water, dissolving into a thin ribbon of light."
+    },
+    {
+      "image": "03.png",
+      "caption": "A ribbon of warm light curves above a blue horizon in a field of darkness."
+    },
+    {
+      "image": "04.png",
+      "caption": "Two luminous ribbons cross a quiet horizon, forming an open arch."
+    },
+    {
+      "image": "05.png",
+      "caption": "An arch of copper light encloses a deep blue opening with fine wave patterns."
+    },
+    {
+      "image": "06.png",
+      "caption": "A glowing doorway opens into a layered sea of blue and violet waves."
+    },
+    {
+      "image": "07.png",
+      "caption": "Violet waves curl through a luminous opening, resembling a spiral shell."
+    },
+    {
+      "image": "08.png",
+      "caption": "A spiral of violet and gold filaments floats in a dark, empty space."
+    },
+    {
+      "image": "09.png",
+      "caption": "A golden vortex gathers delicate violet threads around a hollow centre."
+    },
+    {
+      "image": "10.png",
+      "caption": "A hollow golden eye is surrounded by concentric blue and violet ripples."
+    },
+    {
+      "image": "11.png",
+      "caption": "An iris of fine luminous lines opens into a black circular void."
+    },
+    {
+      "image": "12.png",
+      "caption": "A black sun radiates silver and pale blue filaments into darkness."
+    },
+    {
+      "image": "13.png",
+      "caption": "Silver rays bend into an orbit around an invisible central body."
+    },
+    {
+      "image": "14.png",
+      "caption": "An orbital cloud of pale blue threads stretches into a flowing river."
+    },
+    {
+      "image": "15.png",
+      "caption": "A river of luminous threads flows across a black field, gathering into a knot."
+    },
+    {
+      "image": "16.png",
+      "caption": "A dense knot of blue and amber light unravels into a delicate arc."
+    },
+    {
+      "image": "17.png",
+      "caption": "An amber arc encloses a blue reflection, suspended against black."
+    },
+    {
+      "image": "18.png",
+      "caption": "A red ring returns above dark blue waves, its outline scattered into fine light."
+    }
+  ]
+}

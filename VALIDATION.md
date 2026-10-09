@@ -24,3 +24,10 @@ The complete project was moved to D:\OneDrive - TU Eindhoven\CBL\artifice\midter
 ## Real Windows inference and promotional output
 
 A complete 12-iteration real SD-Turbo / Qwen2.5-VL chain was run on the RTX 3060 under Python 3.12 and CUDA PyTorch 2.8.0. All image hashes and feedback links were verified. The live recording and 69.5-second promotional edit decoded without errors; the A3 poster PDF was reopened, rendered and visually checked. Five real browser screenshots were captured. All 11 application/capture tests passed after ensuring the final committed pair is exported. M5 inference remains untested. See PROMOTIONAL-OUTPUT.md for final assets and rerun instructions.
+
+
+## Mac real-model demo — 2026-10-08
+
+Generated 18 genuine SD-Turbo / Qwen2.5-VL 3B feedback iterations on Apple M5, 16 GB, using Python 3.11 and PyTorch 2.8.0 MPS. Selected original run: `f7fd904c5eb04cf389e6643828232bc9`. Images are 512 × 512, four steps, fp16 downloads with float32 MPS arithmetic. Total recorded iteration time: 308.859 seconds. All images are unique, nonconstant, hash-verified, and linked caption→next prompt. These timings describe this particular run, not a general benchmark.
+
+The initial fp16 arithmetic attempt produced black pixels and is marked `failed_precision_check`; it is excluded from the selected demo. Worker validation now rejects nonfinite latents or decoded pixels. All 13 server/capture tests and simulated browser regression tests pass. Recorded playback is separately labeled and does not perform inference.

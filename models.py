@@ -55,19 +55,54 @@ class LocalModels:
 
 
 class DemoModels:
-    """Deterministic wiring test, not AI; its caption really depends on the pixels."""
+    """Fixed authored playback. Neither adapter performs model inference."""
+    def __init__(self):
+        self.folder = Path(__file__).with_name("demo")
+        self.sequence = json.loads((self.folder / "sequence.json").read_text())
+        self.index = 0
+
     def generate(self, prompt, destination, settings, seed, log_path):
-        import hashlib
-        colour = hashlib.sha256((prompt + str(seed)).encode()).digest()[:3]
-        def chunk(kind, data):
-            return struct.pack("!I", len(data)) + kind + data + struct.pack("!I", zlib.crc32(kind + data))
-        rows = b"".join(b"\0" + colour * 512 for _ in range(512))
-        destination.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack("!2I5B", 512, 512, 8, 2, 0, 0, 0))
-                                + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
+        if prompt == self.sequence["prompt"]:
+            self.index = 0
+        frame = self.sequence["frames"][self.index % len(self.sequence["frames"])]
+        destination.write_bytes((self.folder / frame["image"]).read_bytes())
+        self.index += 1
 
     def describe(self, png_bytes, settings, seed):
-        # Decode this adapter's simple RGB PNG, without access to the prompt.
-        size = struct.unpack("!I", png_bytes[33:37])[0]
-        rgb = zlib.decompress(png_bytes[41:41 + size])[1:4]
-        names = ["red", "green", "blue"]
-        return f"A flat field of {names[max(range(3), key=lambda i: rgb[i])]}-leaning colour. RGB {tuple(rgb)}."
+        import hashlib
+        digest = hashlib.sha256(png_bytes).digest()
+        for frame in self.sequence["frames"]:
+            if hashlib.sha256((self.folder / frame["image"]).read_bytes()).digest() == digest:
+                return frame["caption"]
+        raise ValueError("Unknown demo artwork")
+
+
+class RecordedModels:
+    """Replay verified real-run pixels/captions without fresh model inference."""
+    def __init__(self, folder):
+        import hashlib
+        self.folder = Path(folder)
+        self.manifest = json.loads((self.folder / "manifest.json").read_text())
+        if self.manifest.get("demo") or self.manifest.get("recorded"):
+            raise ValueError("Playback requires an original real-model run")
+        self.frames = [json.loads(f.read_text()) for f in sorted(self.folder.glob("[0-9]" * 6 + ".json"))]
+        if not self.frames:
+            raise ValueError("Recording has no completed iterations")
+        self.captions = {}
+        for index, frame in enumerate(self.frames):
+            pixels = (self.folder / frame["image"]).read_bytes()
+            if hashlib.sha256(pixels).hexdigest() != frame["sha256"]:
+                raise ValueError("Recording image hash mismatch")
+            if index and frame["input"] != self.frames[index-1]["caption"]:
+                raise ValueError("Recording feedback link mismatch")
+            self.captions[hashlib.sha256(pixels).digest()] = frame["caption"]
+        self.index = 0
+
+    def generate(self, prompt, destination, settings, seed, log_path):
+        frame = self.frames[self.index % len(self.frames)]
+        destination.write_bytes((self.folder / frame["image"]).read_bytes())
+        self.index += 1
+
+    def describe(self, png_bytes, settings, seed):
+        import hashlib
+        return self.captions[hashlib.sha256(png_bytes).digest()]

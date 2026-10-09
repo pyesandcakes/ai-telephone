@@ -4,17 +4,19 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest.mock import patch
 import urllib.error
 import urllib.request
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
 from app import Installation, handler_for, settings_from
-from models import DemoModels, VISION_INSTRUCTION, vision_payload
+from models import DemoModels, RecordedModels, VISION_INSTRUCTION, vision_payload
 
 
 class RecordingModels(DemoModels):
     def __init__(self):
+        super().__init__()
         self.inputs = []
         self.pixels = []
 
@@ -105,7 +107,165 @@ class InstallationTests(unittest.TestCase):
         model = DemoModels()
         path = Path(self.tmp.name) / "demo.png"
         model.generate("hello", path, {}, 1, None)
-        self.assertIn("RGB", model.describe(path.read_bytes(), {}, 1))
+        self.assertIn("luminous red ring", model.describe(path.read_bytes(), {}, 1))
+
+    def test_full_demo_sequence(self):
+        app = Installation(self.tmp.name, demo=True)
+        run = app.start({"prompt": "ignored demo input", "interval": 0})
+        app.thread.join(10)
+        self.assertEqual(app.phase, "completed", app.error)
+        items = list(reversed(app.history(run)["items"]))
+        self.assertEqual(len(items), 18)
+        self.assertEqual(len({i["sha256"] for i in items}), 18)
+        for previous, current in zip(items, items[1:]):
+            self.assertEqual(current["input"], previous["caption"])
+        self.assertTrue(all(i["demo"] for i in items))
+        app.replay(run, 1)
+        self.assertTrue(app.public_state()["frame"]["demo"])
+
+    def test_recorded_playback_integrity(self):
+        run = self.run_chain()
+        folder = Path(self.tmp.name) / run
+        manifest_path = folder / "manifest.json"
+        manifest = json.loads(manifest_path.read_text())
+        with self.assertRaises(ValueError): RecordedModels(folder)
+        # Fixture only: exercise validation without claiming these pixels are real inference.
+        manifest["demo"] = False
+        manifest_path.write_text(json.dumps(manifest))
+        adapter = RecordedModels(folder)
+        replay = Installation(self.tmp.name, adapter=adapter)
+        played = replay.start({"prompt": "ignored", "interval": 0})
+        replay.thread.join(3)
+        self.assertEqual(replay.phase, "completed", replay.error)
+        self.assertEqual(replay.history(played)["total"], 3)
+        self.assertTrue(replay.public_state()["frame"]["recorded"])
+        self.assertFalse(replay.public_state()["frame"]["demo"])
+        replay.replay(played, 1)
+        self.assertTrue(replay.public_state()["frame"]["recorded"])
+        (folder / "000001.png").write_bytes(b"corrupted")
+        with self.assertRaises(ValueError): RecordedModels(folder)
+
+    def test_live_modes_preserve_custom_prompts_and_stop(self):
+        for mode, supplied_limit, expected_limit in (("live-demo", 2, 2), ("live-testing", 1, 0)):
+            adapter = RecordingModels()
+            app = Installation(self.tmp.name, adapter=adapter)
+            # Test double only; real inference is validated separately.
+            with patch("prepare.environment", return_value={"models": [{"name": "qwen2.5vl:3b"}]}):
+                run = app.start({"prompt": "My own starting prompt", "mode": mode,
+                                 "limit": supplied_limit, "interval": 0.02})
+                deadline = time.monotonic() + 3
+                while app.history(run)["total"] < (2 if mode == "live-demo" else 3) and time.monotonic() < deadline:
+                    time.sleep(0.01)
+                if mode == "live-testing":
+                    self.assertTrue(app.active())
+                    app.stop()
+                app.thread.join(3)
+            self.assertEqual(app.current["original_prompt"], "My own starting prompt")
+            self.assertEqual(app.current["settings"]["limit"], expected_limit)
+            self.assertEqual(adapter.inputs[0], "My own starting prompt")
+            self.assertEqual(app.phase, "completed" if mode == "live-demo" else "stopped")
+            self.assertFalse(app.current["demo"])
+            self.assertFalse(app.current["recorded"])
+            exported = [json.loads(line) for line in (Path(self.tmp.name) / run / "prompts.jsonl").read_text().splitlines()]
+            self.assertEqual(len(exported), app.history(run)["total"])
+            self.assertEqual(exported[0]["input"], "My own starting prompt")
+
+    def test_images_and_prompt_exports_persist_on_stop_and_error(self):
+        custom = 'An orange boat, a "blue" moon, and café lights.\nSecond line.'
+        run = self.app.start({
+            "prompt": custom, "limit": 3, "interval": 0})
+        self.app.thread.join(3)
+        folder = Path(self.tmp.name) / run
+        records = [json.loads(line) for line in (folder / "prompts.jsonl").read_text().splitlines()]
+        self.assertEqual(len(records), 3)
+        self.assertEqual(records[0]["input"], custom)
+        self.assertEqual(records[1]["input"], records[0]["caption"])
+        text = (folder / "prompts.txt").read_text()
+        self.assertIn(custom, text)
+        for item in records:
+            self.assertIn(item["image"], text)
+            self.assertIn(item["caption"], text)
+            self.assertTrue((folder / item["image"]).is_file())
+        original = self.adapter.describe
+        def fail_second(*args):
+            if len(self.adapter.pixels) > 3:
+                raise RuntimeError("later inference failed")
+            return original(*args)
+        self.adapter.describe = fail_second
+        failed = self.app.start({"prompt": custom, "limit": 3, "interval": 0})
+        self.app.thread.join(3)
+        self.assertEqual(self.app.phase, "error")
+        saved = Path(self.tmp.name) / failed
+        self.assertEqual(len((saved / "prompts.jsonl").read_text().splitlines()), 1)
+        self.assertTrue((saved / "000001.png").exists())
+        self.assertFalse((saved / "pending.png").exists())
+
+    def test_reset_preserves_archive_and_progress(self):
+        run = self.run_chain(limit=2)
+        state = self.app.public_state()
+        self.assertEqual(state["progress"], {"iteration": 2, "completed": 2, "limit": 2})
+        self.assertFalse(state["active"])
+        self.app.reset()
+        self.assertIsNone(self.app.public_state()["frame"])
+        self.assertEqual(self.app.phase, "idle")
+        self.assertEqual(self.app.history(run)["total"], 2)
+        self.assertTrue((Path(self.tmp.name) / run / "prompts.txt").exists())
+        self.app.replay(run, 1)
+        self.assertIsNotNone(self.app.public_state()["frame"])
+
+    def test_reset_rejected_during_generation(self):
+        entered, release = threading.Event(), threading.Event()
+        original = self.adapter.generate
+        def blocked(*args):
+            entered.set(); release.wait(3); original(*args)
+        self.adapter.generate = blocked
+        self.app.start({"prompt": "private prompt", "limit": 1, "interval": 0})
+        self.assertTrue(entered.wait(1))
+        try:
+            self.assertTrue(self.app.public_state()["active"])
+            self.assertEqual(self.app.public_state()["progress"]["iteration"], 1)
+            with self.assertRaises(ValueError): self.app.reset()
+        finally:
+            self.app.stop(); release.set(); self.app.thread.join(3)
+
+    def test_whole_run_playback_never_calls_models_or_changes_archive(self):
+        run = self.run_chain(limit=2)
+        folder = Path(self.tmp.name) / run
+        before = {f.name: f.read_bytes() for f in folder.iterdir()}
+        def forbidden(*args): raise AssertionError("Playback called a model")
+        self.adapter.generate = forbidden
+        self.adapter.describe = forbidden
+        self.app.replay_run(run, interval=0.5)
+        with self.assertRaises(ValueError): self.app.start({"prompt": "overlap"})
+        self.app.thread.join(3)
+        self.assertEqual(self.app.phase, "playback completed")
+        self.assertEqual(self.app.public_state()["frame"]["iteration"], 2)
+        self.assertTrue(self.app.public_state()["frame"]["recorded"])
+        self.assertEqual(before, {f.name: f.read_bytes() for f in folder.iterdir()})
+        self.app.replay_run(run, interval=0.5, repeat=True)
+        time.sleep(1.1)
+        self.assertTrue(self.app.active())
+        self.app.stop(); self.app.thread.join(2)
+        self.assertEqual(self.app.phase, "stopped")
+        self.assertEqual(before, {f.name: f.read_bytes() for f in folder.iterdir()})
+
+    def test_original_prompt_visible_only_in_combined_state(self):
+        run = self.run_chain(limit=1)
+        self.assertNotIn("original_prompt", self.app.public_state())
+        self.assertEqual(self.app.public_state(include_prompt=True)["original_prompt"], "SECRET_ORIGINAL_PROMPT")
+        self.app.reset()
+        self.assertIsNone(self.app.public_state(include_prompt=True)["original_prompt"])
+        self.app.replay(run, 1)
+        self.assertEqual(self.app.public_state(include_prompt=True)["original_prompt"], "SECRET_ORIGINAL_PROMPT")
+
+    def test_reading_pace_accounts_for_caption_and_original(self):
+        run = self.run_chain(limit=1)
+        with patch.object(self.app.stop_event, "wait", return_value=False) as wait:
+            self.app.replay_run(run)
+            self.app.thread.join(3)
+        self.assertEqual(self.app.phase, "playback completed")
+        self.assertGreaterEqual(wait.call_args[0][0], 12)
+        self.assertNotIn("original_prompt", self.app.public_state())
 
     def test_validation(self):
         for config in ({"interval": -1}, {"limit": 1.2}, {"seed": True}, {"steps": 50},

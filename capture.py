@@ -107,7 +107,7 @@ def export_assets(folder, records, manifest):
                   mock=manifest["demo"]).save(pair_path, dpi=(150, 150))
     save_json(assets / "iterations.json", records)
     with (assets / "iterations.csv").open("w", newline="", encoding="utf-8-sig") as file:
-        writer = csv.DictWriter(file, fieldnames=["iteration", "input", "caption", "seed", "seconds", "image", "time", "sha256"])
+        writer = csv.DictWriter(file, extrasaction="ignore", fieldnames=["iteration", "input", "caption", "seed", "seconds", "image", "time", "sha256"])
         writer.writeheader()
         writer.writerows(records)
     transcript = ["AI Telephone", "MOCK RECORDING TEST — no AI models" if manifest["demo"] else "Local AI capture",

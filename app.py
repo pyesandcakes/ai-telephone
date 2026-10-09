@@ -16,7 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from models import DemoModels, LocalModels, VISION_INSTRUCTION
+from models import DemoModels, LocalModels, RecordedModels, VISION_INSTRUCTION
 
 BASE = Path(__file__).resolve().parent
 DEFAULTS = {"interval": 5, "limit": 0, "seed": 42, "steps": 1,
@@ -53,11 +53,13 @@ def settings_from(data):
 
 
 class Installation:
-    def __init__(self, root, demo=False, adapter=None):
+    def __init__(self, root, demo=False, adapter=None, default_mode="live-demo"):
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
+        self.default_mode = default_mode
         self.demo = demo
         self.adapter = adapter or (DemoModels() if demo else LocalModels())
+        self.recorded = isinstance(self.adapter, RecordedModels)
         self.lock = threading.RLock()
         self.stop_event = threading.Event()
         self.thread = None
@@ -67,6 +69,11 @@ class Installation:
         self.error = None
         self.token = secrets.token_urlsafe(32)
         self.events = []
+        self.iteration = 0
+        self.completed = 0
+        self.playback = False
+        self.playback_total = 0
+        self.presentation_prompt = None
 
     def active(self):
         return self.thread is not None and self.thread.is_alive()
@@ -85,19 +92,47 @@ class Installation:
         if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 4000:
             raise ValueError("Enter a prompt of 1–4000 characters")
         settings = settings_from(data)
+        run_mode = data.get("mode")
+        if run_mode not in (None, "live-demo", "live-testing"):
+            raise ValueError("Choose Live demo or Continuous testing")
+        if run_mode and (self.demo or self.recorded):
+            raise ValueError("Live modes require the real-model server")
+        if run_mode == "live-demo":
+            settings["limit"] = settings["limit"] or 18
+        elif run_mode == "live-testing":
+            settings["limit"] = 0
+        if self.demo and type(self.adapter) is DemoModels:
+            prompt = self.adapter.sequence["prompt"]
+            settings["limit"] = min(settings["limit"] or 18, 18)
+        if self.recorded:
+            self.adapter.index = 0
+            prompt = self.adapter.manifest["original_prompt"]
+            settings["limit"] = min(settings["limit"] or len(self.adapter.frames), len(self.adapter.frames))
+            settings["seed"] = self.adapter.frames[0]["seed"]
         with self.lock:
             if self.active():
                 raise ValueError("A run is already active; stop it first")
             self.stop_event.clear()
+            self.playback = False
             run_id = uuid.uuid4().hex
             folder = self.root / run_id
             folder.mkdir()
             self.current = {"id": run_id, "created": now(), "original_prompt": prompt.strip(),
-                            "settings": settings, "demo": self.demo, "status": "running",
+                            "settings": settings, "mode": run_mode, "demo": self.demo, "status": "running",
                             "python": platform.python_version(), "platform": platform.platform(),
-                            "vision_instruction": VISION_INSTRUCTION}
+                            "vision_instruction": VISION_INSTRUCTION,
+                            "recorded": self.recorded, "source_run": self.adapter.manifest["id"] if self.recorded else None,
+                            "provenance": "Recorded real-model outputs; replay, no new inference" if self.recorded else "Simulated artwork and scripted interpretations; no model inference" if self.demo else "Local model inference"}
             save_json(folder / "manifest.json", self.current)
+            (folder / "prompts.txt").write_text(
+                f"AI Telephone — run {run_id}\n{self.current['provenance']}\n"
+                f"Original prompt:\n{prompt.strip()}\n\n"
+                "Each completed image is listed below with its exact generation prompt "
+                "and vision interpretation.\n\n", encoding="utf-8")
+            (folder / "prompts.jsonl").touch()
             self.error = None
+            self.iteration = 0
+            self.completed = 0
             self.phase = "starting"
             self.event("started", run=run_id)
             self.thread = threading.Thread(target=self.loop, name="telephone-loop", daemon=True)
@@ -109,7 +144,8 @@ class Installation:
             if self.active():
                 self.stop_event.set()
                 self.phase = "stopping"
-                self.event("stop_requested")
+                if not self.playback:
+                    self.event("stop_requested")
 
     def set_phase(self, phase):
         with self.lock:
@@ -122,7 +158,7 @@ class Installation:
         prompt = run["original_prompt"]
         count = 0
         try:
-            if not self.demo:
+            if not self.demo and not self.recorded:
                 from prepare import environment
                 run["environment"] = environment()
                 available = {model["name"] for model in run["environment"]["models"]}
@@ -131,6 +167,8 @@ class Installation:
                 save_json(folder / "manifest.json", run)
             while not self.stop_event.is_set():
                 count += 1
+                with self.lock:
+                    self.iteration = count
                 seed = (settings["seed"] + count - 1) % (2**31)
                 started = time.monotonic()
                 temp_image = folder / "pending.png"
@@ -149,13 +187,26 @@ class Installation:
                 os.replace(temp_image, folder / filename)
                 record = {"iteration": count, "time": now(), "seed": seed,
                           "input": prompt, "caption": caption, "image": filename,
+                          "demo": self.demo, "recorded": self.recorded, "provenance": run["provenance"],
+                          "source_iteration": self.adapter.frames[count-1] if self.recorded else None,
                           "sha256": hashlib.sha256((folder / filename).read_bytes()).hexdigest(),
                           "seconds": round(time.monotonic() - started, 3)}
                 # An iteration is committed by its JSON file. Incomplete PNGs are ignored.
                 save_json(folder / f"{count:06d}.json", record)
+                # Incremental exports retain completed work on Stop or later model errors.
+                # Exact prompts remain host-only; these files are never public routes.
+                with (folder / "prompts.jsonl").open("a", encoding="utf-8") as export:
+                    export.write(json.dumps(record, ensure_ascii=False) + "\n")
+                with (folder / "prompts.txt").open("a", encoding="utf-8") as export:
+                    export.write(f"Iteration {count:06d} — {filename}\nSeed: {seed}\n"
+                                 f"Image prompt:\n{prompt}\n\n"
+                                 f"Image interpretation / next prompt:\n{caption}\n\n"
+                                 "----------------------------------------\n\n")
                 with self.lock:
+                    self.presentation_prompt = run["original_prompt"]
+                    self.completed = count
                     self.published = {"run": run["id"], "iteration": count,
-                                      "caption": caption, "image": f"/images/{run['id']}/{filename}"}
+                                      "demo": self.demo, "recorded": self.recorded, "caption": caption, "image": f"/images/{run['id']}/{filename}"}
                 self.event("iteration_completed", iteration=count, seconds=record["seconds"])
                 prompt = caption
                 if settings["limit"] and count >= settings["limit"]:
@@ -177,10 +228,31 @@ class Installation:
             run["ended"] = now()
             save_json(folder / "manifest.json", run)
 
-    def public_state(self):
+    def reset(self):
+        with self.lock:
+            if self.active():
+                raise ValueError("Stop the run before resetting the displays")
+            self.event("displays_reset")
+            self.published = None
+            self.presentation_prompt = None
+            self.current = None
+            self.playback = False
+            self.playback_total = 0
+            self.error = None
+            self.iteration = 0
+            self.completed = 0
+            self.phase = "idle"
+
+    def public_state(self, include_prompt=False):
         with self.lock:
             # Explicit allowlist: prompts, history, logs and raw errors stay private.
-            return {"phase": self.phase, "demo": self.demo, "frame": copy.deepcopy(self.published)}
+            state = {"phase": self.phase, "demo": self.demo, "recorded": self.recorded,
+                    "frame": copy.deepcopy(self.published), "active": self.active(), "playback": self.playback,
+                    "progress": {"iteration": self.iteration, "completed": self.completed,
+                                 "limit": self.playback_total if self.playback else self.current["settings"]["limit"] if self.current else 0}}
+            if include_prompt:
+                state["original_prompt"] = self.current["original_prompt"] if self.active() and self.current and not self.playback else self.presentation_prompt
+            return state
 
     def run_folder(self, run_id):
         if not re.fullmatch(r"[a-f0-9]{32}", run_id):
@@ -200,6 +272,10 @@ class Installation:
         result = []
         for path in self.root.glob("*/manifest.json"):
             try:
+                # macOS File Provider can evict cloud files. Avoid blocking the controller
+                # while OneDrive hydrates old archives; they reappear when available.
+                if getattr(path.stat(), "st_flags", 0) & 0x40000000:
+                    continue
                 run = json.loads(path.read_text(encoding="utf-8"))
                 if run["status"] == "running" and (not self.current or run["id"] != self.current["id"]):
                     run["status"] = "interrupted"
@@ -207,6 +283,66 @@ class Installation:
             except (ValueError, OSError, KeyError):
                 continue
         return sorted(result, key=lambda r: r["created"], reverse=True)
+
+    def replay_run(self, run_id, interval=None, repeat=False):
+        if interval is not None and (isinstance(interval, bool) or not isinstance(interval, (int, float)) or not 0.5 <= interval <= 3600):
+            raise ValueError("Playback hold must be 0.5–3600 seconds")
+        if not isinstance(repeat, bool):
+            raise ValueError("Loop playback must be true or false")
+        with self.lock:
+            if self.active():
+                raise ValueError("Stop the current run before playback")
+            folder = self.run_folder(run_id)
+            manifest = json.loads((folder / "manifest.json").read_text())
+            frames = [json.loads(f.read_text()) for f in sorted(folder.glob("[0-9]" * 6 + ".json"))]
+            if not frames:
+                raise ValueError("This run has no completed iterations")
+            for frame in frames:
+                if not re.fullmatch(r"[0-9]{6}\.png", frame["image"]):
+                    raise ValueError("Invalid recorded image filename")
+                if hashlib.sha256((folder / frame["image"]).read_bytes()).hexdigest() != frame["sha256"]:
+                    raise ValueError("Saved image checksum mismatch")
+            self.stop_event.clear()
+            # Playback never writes into the original inference records or manifest.
+            self.current = None
+            self.playback = True
+            self.presentation_prompt = manifest["original_prompt"]
+            self.playback_total = len(frames)
+            self.completed = 0
+            self.iteration = 0
+            self.error = None
+            self.phase = "playing saved run"
+            self.thread = threading.Thread(target=self.playback_loop,
+                args=(run_id, frames, manifest, interval, repeat), daemon=True)
+            self.thread.start()
+
+    def playback_loop(self, run_id, frames, manifest, interval, repeat):
+        try:
+            while not self.stop_event.is_set():
+                for index, frame in enumerate(frames):
+                    if self.stop_event.is_set():
+                        break
+                    with self.lock:
+                        self.iteration = frame["iteration"]
+                        self.completed = index + 1
+                        self.phase = "playing saved run"
+                        self.published = {"run": run_id, "iteration": frame["iteration"],
+                            "demo": manifest.get("demo", False), "recorded": True,
+                            "caption": frame["caption"], "image": f"/images/{run_id}/{frame['image']}"}
+                    hold = interval
+                    if hold is None:
+                        hold = max(12, len(frame["caption"].split()) / 2.5 + 3)
+                        if index == 0:
+                            hold += len(manifest["original_prompt"].split()) / 2.5
+                    self.stop_event.wait(hold)
+                if not repeat:
+                    break
+            with self.lock:
+                self.phase = "stopped" if self.stop_event.is_set() else "playback completed"
+        except Exception as exc:
+            with self.lock:
+                self.error = str(exc)
+                self.phase = "error"
 
     def replay(self, run_id, iteration):
         with self.lock:
@@ -216,7 +352,10 @@ class Installation:
             if not isinstance(iteration, int) or not 1 <= iteration <= 999999:
                 raise ValueError("Invalid iteration")
             record = json.loads((folder / f"{iteration:06d}.json").read_text(encoding="utf-8"))
-            self.published = {"run": run_id, "iteration": iteration, "caption": record["caption"],
+            self.presentation_prompt = json.loads((folder / "manifest.json").read_text())["original_prompt"]
+            self.published = {"run": run_id, "iteration": iteration,
+                              "demo": json.loads((folder / "manifest.json").read_text())["demo"],
+                              "recorded": json.loads((folder / "manifest.json").read_text()).get("recorded", False), "caption": record["caption"],
                               "image": f"/images/{run_id}/{record['image']}"}
             self.phase = "replay"
 
@@ -253,14 +392,18 @@ def handler_for(installation):
             parsed = urlparse(self.path)
             path = parsed.path
             try:
+                if path == "/api/combined-state":
+                    return self.send(200, installation.public_state(include_prompt=True))
                 if path == "/api/state":
                     return self.send(200, installation.public_state())
                 if path == "/api/admin":
                     if not self.admin(): return
+                    runs = installation.runs()
                     with installation.lock:
                         return self.send(200, {**installation.public_state(), "active": installation.active(),
                                                "error": installation.error, "events": installation.events[-30:],
-                                               "runs": installation.runs()})
+                                               "runs": runs, "default_mode": installation.default_mode,
+                                               "recorded_prompt": installation.adapter.manifest["original_prompt"] if installation.recorded else None})
                 if path == "/api/history":
                     if not self.admin(): return
                     query = parse_qs(parsed.query)
@@ -294,8 +437,14 @@ def handler_for(installation):
                 path = urlparse(self.path).path
                 if path == "/api/start":
                     return self.send(200, {"run": installation.start(data)})
+                if path == "/api/reset":
+                    installation.reset()
+                    return self.send(200, {"ok": True})
                 if path == "/api/stop":
                     installation.stop()
+                    return self.send(200, {"ok": True})
+                if path == "/api/replay-run":
+                    installation.replay_run(data.get("run", ""), data.get("interval"), data.get("repeat", False))
                     return self.send(200, {"ok": True})
                 if path == "/api/replay":
                     installation.replay(data.get("run", ""), data.get("iteration"))
@@ -309,17 +458,23 @@ def handler_for(installation):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--demo", action="store_true", help="Test displays without models")
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--demo", action="store_true", help="Live real-model demo with your own prompt")
+    modes.add_argument("--testing", action="store_true", help="Continuous real-model testing until Stop")
+    modes.add_argument("--simulated-demo", action="store_true", help="Explicit simulated wiring test; no inference")
+    parser.add_argument("--recorded-demo", type=Path, help="Replay an original real-model run folder")
     parser.add_argument("--bind", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--runs", type=Path, default=BASE / "runs")
     args = parser.parse_args()
-    installation = Installation(args.runs, args.demo)
+    if (args.demo or args.testing or args.simulated_demo) and args.recorded_demo:
+        parser.error("Choose one live, simulated, or recorded mode")
+    installation = Installation(args.runs, args.simulated_demo, RecordedModels(args.recorded_demo) if args.recorded_demo else None, default_mode="live-testing" if args.testing else "live-demo")
     server = ThreadingHTTPServer((args.bind, args.port), handler_for(installation))
     print(f"Controls: http://127.0.0.1:{args.port}/#token={installation.token}", flush=True)
     print(f"Displays: http://<host-LAN-IP>:{args.port}/image and /text", flush=True)
     print(f"One laptop: http://127.0.0.1:{args.port}/combined", flush=True)
-    print("DEMO MODE — no AI models" if args.demo else "LOCAL MODE — SD-Turbo + Ollama", flush=True)
+    print("SIMULATED TEST — no AI models" if args.simulated_demo else "LOCAL MODE — SD-Turbo + Ollama", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -12,7 +12,7 @@ On the host, the combined display is `http://127.0.0.1:8765/combined`. No LAN co
 
 ## Artistic reference
 
-The visual design takes cues from the reference's project page: a white gallery-like surface, restrained sans-serif typography, a light letter-spaced title, open image/text columns and fine dividing rules. Controls use monochrome rectangular elements; the paired presentation gives the image and interpretation generous space. The image-only display retains a black surround. No external fonts or artist media are required.
+The visual design takes cues from the reference's project page: a black gallery-like surface, restrained sans-serif typography, a light letter-spaced title, open image/text columns and fine dividing rules. Controls use monochrome rectangular elements; the paired presentation gives the image and interpretation generous space. The image-only display retains a black surround. No external fonts or artist media are required.
 
 Inspiration: Jake Elwes, [A.I. Interprets A.I. Interpreting ‘Against Interpretation’ (Sontag 1966)](https://www.jakeelwes.com/project-sontag.html), 2023. The artist's page describes text-to-image and image-to-language interpretation of Sontag's essay, and documents single-channel and three-channel versions. AI Telephone explores a related translation process with a recursive chain: each generated interpretation becomes the next image prompt. This project is an independent implementation; it does not include the artist's footage, code or Sontag's essay.
 
@@ -34,10 +34,10 @@ Original prompt → SD-Turbo → PNG pixels → Qwen2.5-VL → description
 Copy this entire `ai-telephone` folder to the host. In a terminal opened inside it:
 
 ```sh
-python app.py --demo
+python app.py --simulated-demo
 ```
 
-On a Mac, use `python3` if `python` is unavailable. Demo mode needs Python 3.11 or newer and **no packages**. It produces coloured squares and pixel-derived descriptions, not AI images. It exercises the same controller, history and display paths as real mode.
+On a Mac, use `python3` if `python` is unavailable. Demo mode needs Python 3.11 or newer and **no packages**. It plays 18 bundled 1440 × 1080 procedural abstract artworks with scripted interpretations. These are illustrative simulated data, not outputs of image/vision inference or experimental evidence. A fixed starting prompt is used; custom prompts belong to real mode. Each scripted interpretation becomes the next recorded input, while imagery is pre-authored rather than generated from that input. The default demo finishes after 18 iterations; smaller limits are supported. No downloads or model packages are needed. Provenance is visible on displays and saved in manifests and iteration records. All three screens use a black background.
 
 Open the **Controls** URL printed by the terminal on the host. Its temporary token is stored in that browser tab's session storage and removed from the address bar. Enter a prompt, set a small iteration limit, and start.
 
@@ -192,3 +192,36 @@ Implementation map: `app.py` owns orchestration/storage/HTTP, `models.py` owns m
 See [CAPTURE.md](CAPTURE.md) for the one-off automatic mode. It starts a finite chain, saves clean image/text frames during the run, and records the live output to MP4. The final exports include a poster contact sheet, subtitle file, transcript, CSV and full iteration history.
 
 After model setup, run `python capture.py`, or use `Capture-Midterm.ps1` on Windows and `bash Capture-Midterm.command` on Mac. The default uses real models. Use `--mock` for a clearly labelled recording-only test.
+
+## Mac real-model demo
+
+This Mac uses a separate `.venv-mac` environment (Python 3.11), with half-precision SD-Turbo downloads (~2.6 GB; full-precision arithmetic on the Apple GPU to avoid invalid/black pixels) and Qwen2.5-VL 3B (~3.2 GB). The existing Windows environment is preserved.
+
+Start the local vision server with `/opt/homebrew/bin/ollama serve` if it is not already running. Double-click `Generate-Real-Demo.command` to produce 18 actual local image→vision iterations at 512 × 512, four image steps per frame. Each vision call receives only the image pixels; its caption becomes the next input. Output and model provenance are saved in `runs/`. This is the baseline model's native resolution, not the simulated artwork's 1440 × 1080 size.
+
+After generation completes, double-click `Play-Real-Demo.command`. Open the printed Controls URL on the Mac, choose **Play recorded chain**, and use `/image` and `/text` on the display laptops. Playback runs without inference, checks original image hashes and feedback links, and is labeled **Recorded real-model chain**. It finishes after 18 frames by default; press Play again to restart. `--demo` still selects the separate simulated artwork sequence.
+
+The original inference records preserve model/environment information and generation timings. Playback records identify their source run and preserve source iteration metadata; their elapsed times describe replay, not inference speed.
+
+## Live demo and continuous testing on this Mac
+
+`Live-Demo.command` (also `Play-Real-Demo.command`) starts real models, not recordings. `Continuous-Testing.command` opens the same controller with continuous testing selected. Both accept your own starting prompt. Choose the mode in the controller: **Live demo** defaults to 18 freshly generated iterations, with an adjustable limit; **Continuous testing** enforces no iteration limit and runs until Stop. Switching modes never overwrites your typed prompt. The caption from each image becomes the next image prompt, with isolated vision requests. Stop waits for the active model call and discards an unfinished pair.
+
+Terminal equivalents: `.venv-mac/bin/python app.py --demo` and `.venv-mac/bin/python app.py --testing`. Only `--simulated-demo` selects the separate artificial test sequence. The explicit `--recorded-demo` option remains available for archive playback but is not used by either live launcher. Black backgrounds and `/image`, `/text`, `/combined` views are preserved.
+
+
+## Automatic image and prompt saving
+
+Both live demo and continuous testing save every completed iteration immediately in `runs/<run-id>/`. PNGs are named `000001.png`, `000002.png`, etc. Each run contains `prompts.txt` (readable original prompt, exact input for each image, interpretation/next prompt, image filename and seed) and `prompts.jsonl` (one structured record per completed iteration). Individual numbered JSON records and the manifest are also retained. Exports update as the chain runs, so completed images/prompts remain available after Stop or a later model error. An unfinished iteration is discarded. Every new run gets its own folder, preserving earlier runs. Prompt exports are private host files and are not served to display laptops.
+
+
+## Replay a whole saved run
+
+In the controller’s Iteration archive, choose a saved run, set Playback hold in seconds, and click Replay run. Images and exact saved interpretations play chronologically on `/combined`, `/image`, and `/text`. Optional Loop until Stop repeats the sequence. Stop interrupts playback promptly. No models are called; original images, prompts, timings and manifests remain unchanged. Playback is explicitly labeled, and cannot overlap live generation.
+
+
+## Original prompt and readable replay
+
+The combined page displays a labeled original starting prompt above the image/interpretation pair, including during saved-run replay. This display intentionally shares the original prompt through `/api/combined-state`; `/image`, `/text`, and `/api/state` continue to omit it, and the vision model still receives only pixels. Reset clears the original prompt too. Long originals can be scrolled in their dedicated area.
+
+Whole-run replay defaults to Reading pace: at least 12 seconds per frame, roughly 150 words per minute plus a 3-second margin. The first frame includes extra time for the original prompt. Uncheck Reading pace to choose a fixed custom hold. No model inference is performed during playback.
