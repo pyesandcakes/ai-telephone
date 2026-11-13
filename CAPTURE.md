@@ -4,7 +4,9 @@ This starts a finite chain automatically, opens the paired display and records i
 
 ## Real AI content
 
-Complete the model setup in README.md first, including `python prepare.py`. Activate that environment and run from this folder:
+The easiest route is to double-click `Capture-Midterm.command` (Mac) or `Capture-Midterm.cmd` (Windows). These launchers install dependencies and download missing models automatically. For a custom prompt, use `python launch.py --mode capture -- --prompt "Your prompt" --iterations 12`.
+
+For a manually managed environment, complete model setup in README.md, activate it and run:
 
 ```sh
 python -m pip install -r requirements-capture.txt
@@ -27,7 +29,7 @@ The original prompt appears on the video's opening title card and in private exp
 python capture.py --mock --iterations 3 --hold 1
 ```
 
-This generates colour fields and pixel-derived descriptions. Its video, frames and poster are labelled **MOCK / NO AI MODELS**. Use it to check the capture pipeline, not as evidence of real AI inference.
+This plays the bundled authored abstract artworks with scripted interpretations; it does not perform model inference. Its video, frames and poster are labelled **MOCK / NO AI MODELS**. Use it to check the capture pipeline, not as evidence of real AI inference.
 
 ## Saved output
 

@@ -274,6 +274,26 @@ class InstallationTests(unittest.TestCase):
         with self.assertRaises(ValueError): self.app.start({"prompt": " "})
         with self.assertRaises(ValueError): self.app.run_folder("../sources")
 
+    def test_missing_selected_vision_model_downloads_before_generation(self):
+        app = Installation(self.tmp.name, adapter=RecordingModels())
+        with patch("prepare.environment", side_effect=[{"models": []}, {"models": [{"name": "qwen2.5vl:7b"}]}]), patch("prepare.ensure_vision_model") as download:
+            app.start({"prompt": "A quiet café by the sea", "limit": 1, "vision_model": "qwen2.5vl:7b"})
+            app.thread.join(3)
+        download.assert_called_once_with("qwen2.5vl:7b")
+        self.assertEqual(app.phase, "completed", app.error)
+        self.assertEqual(app.current["environment"]["models"][0]["name"], "qwen2.5vl:7b")
+
+    def test_unicode_prompts_survive_saved_replay(self):
+        prompt = "Café — 雨の街 🌙"
+        run = self.app.start({"prompt": prompt, "limit": 1})
+        self.app.thread.join(3)
+        self.app.replay(run, 1)
+        self.assertEqual(self.app.public_state(include_prompt=True)["original_prompt"], prompt)
+        self.app.replay_run(run, interval=0.5)
+        self.app.thread.join(3)
+        self.assertEqual(self.app.phase, "playback completed", self.app.error)
+        self.assertEqual(self.app.public_state(include_prompt=True)["original_prompt"], prompt)
+
     def test_http_privacy_and_routes(self):
         run = self.run_chain(limit=1)
         server = ThreadingHTTPServer(("127.0.0.1", 0), handler_for(self.app))

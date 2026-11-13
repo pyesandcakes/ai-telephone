@@ -115,6 +115,7 @@ async function poll() {
       active = state.active;
       if (!modeInitialized) {
         $("mode").value = state.default_mode || "live-demo";
+        $("vision_model").value = state.default_vision_model || "qwen2.5vl:3b";
         updateMode(); modeInitialized = true;
       }
       $("mode-label").hidden = state.demo || state.recorded;
@@ -156,7 +157,7 @@ async function poll() {
       const progress = state.progress || {completed: 0, iteration: 0, limit: 0};
       $("generation-progress").hidden = !state.active;
       if (state.active) {
-        const stage = {"starting": "Starting models", "generating image": "Generating image", "interpreting image": "Interpreting image", "holding": "Waiting for next iteration", "playing saved run": "Playing saved run", "stopping": state.playback ? "Stopping playback" : "Stopping after current model call"}[state.phase] || state.phase;
+        const stage = {"starting": "Starting models", "checking models": "Checking models", "downloading vision model": "Downloading selected vision model (first use)", "generating image": "Generating image", "interpreting image": "Interpreting image", "holding": "Waiting for next iteration", "playing saved run": "Playing saved run", "stopping": state.playback ? "Stopping playback" : "Stopping after current model call"}[state.phase] || state.phase;
         $("progress-label").textContent = `${stage} · iteration ${progress.iteration || 1} · ${progress.completed}${progress.limit ? ` / ${progress.limit}` : ""} ${state.playback ? "shown" : "completed"}`;
         if (progress.limit) { $("progress-bar").max = progress.limit; $("progress-bar").value = progress.completed; }
         else $("progress-bar").removeAttribute("value");

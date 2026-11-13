@@ -13,7 +13,7 @@
 <label>Demo iteration limit<input id="limit" type="number" min="0" max="10000" value="18" required></label>
 <label>Starting seed<input id="seed" type="number" min="0" max="2147483647" value="42" required></label>
 <label>Image steps<input id="steps" type="number" min="1" max="4" value="4" required></label>
-<label>Vision model<select id="vision_model"><option value="qwen2.5vl:3b">Qwen2.5-VL · 3B</option><option value="qwen2.5vl:7b">Qwen2.5-VL · 7B</option></select></label></div>
+<label>Vision model<select id="vision_model"><option value="qwen2.5vl:3b">Qwen2.5-VL · 3B</option><option value="qwen2.5vl:7b">Qwen2.5-VL · 7B</option></select><small>A missing vision model downloads automatically on first use. Internet is needed for downloads.</small></label></div>
 <div class="actions"><button id="start" type="submit">Start new chain</button><button id="stop" type="button" class="secondary" disabled>Stop</button><button id="reset" type="button" class="secondary" disabled>Reset displays</button></div>
 <p class="hint">Stop waits for the current model call to finish and discards its unfinished iteration. Displays keep the last completed pair. Reset displays clears all presentation screens after a run; saved images and prompts remain in the archive.</p>
 </form></section>

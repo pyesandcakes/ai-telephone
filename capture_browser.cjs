@@ -9,7 +9,14 @@ const path = require('node:path');
   const manifest = JSON.parse(await fs.readFile(path.join(run,'manifest.json'),'utf8'));
   if (manifest.demo) throw new Error('Use a real run for promotional screenshots');
   await fs.mkdir(out,{recursive:true});
-  const python = process.env.PYTHON || path.join(__dirname,'.venv','Scripts','python.exe');
+  const platformFolder = `${process.platform === 'darwin' ? 'darwin' : 'windows'}-${process.arch === 'arm64' ? 'arm64' : process.platform === 'win32' ? 'amd64' : 'x86_64'}`;
+  const relativePython = process.platform === 'win32' ? ['Scripts','python.exe'] : ['bin','python'];
+  const candidates = [path.join(__dirname,'.runtime',platformFolder,...relativePython), path.join(__dirname,process.platform === 'win32' ? '.venv' : '.venv-mac',...relativePython)];
+  let python = process.env.PYTHON;
+  if (!python) {
+    for (const candidate of candidates) { try { await fs.access(candidate); python = candidate; break; } catch {} }
+  }
+  python ||= process.platform === 'win32' ? 'python' : 'python3';
   const host = spawn(python,['app.py','--runs',path.dirname(run),'--bind','127.0.0.1','--port','8767'],{cwd:__dirname,windowsHide:true});
   let browser;
   try {

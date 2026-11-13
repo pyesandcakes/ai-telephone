@@ -11,6 +11,7 @@ import secrets
 import threading
 import time
 import uuid
+import webbrowser
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -159,11 +160,14 @@ class Installation:
         count = 0
         try:
             if not self.demo and not self.recorded:
-                from prepare import environment
+                from prepare import environment, ensure_vision_model
+                self.set_phase("checking models")
                 run["environment"] = environment()
                 available = {model["name"] for model in run["environment"]["models"]}
                 if settings["vision_model"] not in available:
-                    raise ValueError("Pull the selected vision model in Ollama before starting")
+                    self.set_phase("downloading vision model")
+                    ensure_vision_model(settings["vision_model"])
+                    run["environment"] = environment()
                 save_json(folder / "manifest.json", run)
             while not self.stop_event.is_set():
                 count += 1
@@ -293,8 +297,8 @@ class Installation:
             if self.active():
                 raise ValueError("Stop the current run before playback")
             folder = self.run_folder(run_id)
-            manifest = json.loads((folder / "manifest.json").read_text())
-            frames = [json.loads(f.read_text()) for f in sorted(folder.glob("[0-9]" * 6 + ".json"))]
+            manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
+            frames = [json.loads(f.read_text(encoding="utf-8")) for f in sorted(folder.glob("[0-9]" * 6 + ".json"))]
             if not frames:
                 raise ValueError("This run has no completed iterations")
             for frame in frames:
@@ -352,10 +356,10 @@ class Installation:
             if not isinstance(iteration, int) or not 1 <= iteration <= 999999:
                 raise ValueError("Invalid iteration")
             record = json.loads((folder / f"{iteration:06d}.json").read_text(encoding="utf-8"))
-            self.presentation_prompt = json.loads((folder / "manifest.json").read_text())["original_prompt"]
+            self.presentation_prompt = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))["original_prompt"]
             self.published = {"run": run_id, "iteration": iteration,
-                              "demo": json.loads((folder / "manifest.json").read_text())["demo"],
-                              "recorded": json.loads((folder / "manifest.json").read_text()).get("recorded", False), "caption": record["caption"],
+                              "demo": json.loads((folder / "manifest.json").read_text(encoding="utf-8"))["demo"],
+                              "recorded": json.loads((folder / "manifest.json").read_text(encoding="utf-8")).get("recorded", False), "caption": record["caption"],
                               "image": f"/images/{run_id}/{record['image']}"}
             self.phase = "replay"
 
@@ -403,6 +407,7 @@ def handler_for(installation):
                         return self.send(200, {**installation.public_state(), "active": installation.active(),
                                                "error": installation.error, "events": installation.events[-30:],
                                                "runs": runs, "default_mode": installation.default_mode,
+                                               "default_vision_model": DEFAULTS["vision_model"],
                                                "recorded_prompt": installation.adapter.manifest["original_prompt"] if installation.recorded else None})
                 if path == "/api/history":
                     if not self.admin(): return
@@ -466,15 +471,19 @@ def main():
     parser.add_argument("--bind", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--runs", type=Path, default=BASE / "runs")
+    parser.add_argument("--open-browser", action="store_true", help="Open authenticated controls automatically")
     args = parser.parse_args()
     if (args.demo or args.testing or args.simulated_demo) and args.recorded_demo:
         parser.error("Choose one live, simulated, or recorded mode")
     installation = Installation(args.runs, args.simulated_demo, RecordedModels(args.recorded_demo) if args.recorded_demo else None, default_mode="live-testing" if args.testing else "live-demo")
     server = ThreadingHTTPServer((args.bind, args.port), handler_for(installation))
-    print(f"Controls: http://127.0.0.1:{args.port}/#token={installation.token}", flush=True)
-    print(f"Displays: http://<host-LAN-IP>:{args.port}/image and /text", flush=True)
-    print(f"One laptop: http://127.0.0.1:{args.port}/combined", flush=True)
+    print(f"Controls: http://127.0.0.1:{server.server_port}/#token={installation.token}", flush=True)
+    print(f"Displays: http://<host-LAN-IP>:{server.server_port}/image and /text", flush=True)
+    print(f"One laptop: http://127.0.0.1:{server.server_port}/combined", flush=True)
     print("SIMULATED TEST — no AI models" if args.simulated_demo else "LOCAL MODE — SD-Turbo + Ollama", flush=True)
+    if args.open_browser:
+        threading.Timer(0.5, webbrowser.open,
+                        args=(f"http://127.0.0.1:{server.server_port}/#token={installation.token}",)).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:

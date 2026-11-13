@@ -17,7 +17,7 @@ def main():
         raise RuntimeError(app.error)
     if app.history(run)["total"] != 18:
         raise RuntimeError("Incomplete chain")
-    (BASE / "real-demo.json").write_text(json.dumps({"run": run, "folder": str(BASE / "runs" / run)}, indent=2))
+    (BASE / "real-demo.json").write_text(json.dumps({"run": run, "folder": str(BASE / "runs" / run)}, indent=2), encoding="utf-8")
     print(f"Saved original real-model chain: {run}", flush=True)
 
 if __name__ == "__main__":

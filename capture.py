@@ -208,7 +208,10 @@ def capture(args):
                             frame["caption"] if frame else "The first image is being generated and interpreted.",
                             frame["iteration"] if frame else 0, phase=state["phase"], mock=args.mock)
             write_frame(picture)
-            if not installation.active():
+            # Use the same snapshot that supplied the rendered frame. The worker
+            # can publish its final pair while plate() is rendering the previous
+            # one; checking the live thread here would skip that final pair.
+            if not state["active"]:
                 for _ in range(args.fps * 3):
                     write_frame(picture)
                 break

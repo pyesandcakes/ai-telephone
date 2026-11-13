@@ -11,3 +11,7 @@ captures/
 
 .venv-mac/
 real-demo.json
+.pio/
+.runtime/
+.env
+.env.*

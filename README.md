@@ -1,181 +1,151 @@
 # AI Telephone
 
-A local installation for one or three laptops. One host generates an image, a separate vision model describes it, and that description becomes the next image prompt. Optional display laptops only need a browser.
+An image becomes language. Language becomes the next image. SD-Turbo generates images locally; Qwen2.5-VL describes their pixels through local Ollama. The host can be a Mac or Windows computer. Additional display computers need only a browser.
 
-## One laptop / three laptops
+## Start here
 
-**One laptop:** start a chain in Controls, then choose **Present on this laptop**. The `/combined` page shows the generated image and its interpretation side by side, or stacked on a narrow/portrait screen. Click Fullscreen for presentation. The loop keeps running when you change views. Move the pointer to reveal the bottom bar and choose Controls to return to start/stop/history; the original prompt stays on the private control page. The normal control page also shows both outputs alongside all controls.
+1. Download/copy the whole project folder and extract it if zipped.
+2. Double-click **`Start-AI-Telephone.command` on Mac** or **`Start-AI-Telephone.cmd` on Windows**.
+3. If Python is missing, the launcher opens its download page. Install **Python 3.12** (3.11 also works; [3.12 installers](https://www.python.org/downloads/release/python-31210/)), then double-click again. On Windows, include the Python launcher when installing. The pinned model packages do not target Python 3.13 or newer.
+4. If Ollama is missing, setup opens [Ollama's installer page](https://ollama.com/download). Install and open Ollama, then press Enter in the setup terminal to continue.
+5. Wait for first-time setup. It creates a local Python environment, installs dependencies, starts Ollama, checks both models and downloads missing files. Downloads total roughly 6 GB for the default models, plus Python packages. Allow additional disk space for installation and saved images. Keep internet connected until setup finishes.
+6. The authenticated controller opens in your browser. Enter a prompt and click **Start live demo**. Use **Present on this laptop** to see the image, interpretation and starting prompt together.
 
-**Three laptops:** keep Controls on the host and open `/image` and `/text` on the other laptops. You can switch between either arrangement without restarting the chain. `/combined` also works on a remote display if only one additional laptop is available.
+Leave the terminal open while running. To finish, click **Stop**, wait for the current model call, then press Ctrl+C in the terminal. Completed images and prompts remain saved.
 
-On the host, the combined display is `http://127.0.0.1:8765/combined`. No LAN connection is needed when everything is on one laptop.
+If macOS blocks opening the downloaded script, use Finder's **Open** action or the relevant Privacy & Security setting. You can also open Terminal in this folder and run `bash Start-AI-Telephone.command`. On Windows, use the `.cmd` launcher; no permanent PowerShell execution-policy change is needed.
 
-## Artistic reference
+### Accounts and keys
 
-The visual design takes cues from the reference's project page: a black gallery-like surface, restrained sans-serif typography, a light letter-spaced title, open image/text columns and fine dividing rules. Controls use monochrome rectangular elements; the paired presentation gives the image and interpretation generous space. The image-only display retains a black surround. No external fonts or artist media are required.
+**No paid API key is required by this implementation.** Inference uses your own computer, not a cloud model API. The default public models normally download without signing in. Local Ollama models do not require an Ollama account.
 
-Inspiration: Jake Elwes, [A.I. Interprets A.I. Interpreting ‘Against Interpretation’ (Sontag 1966)](https://www.jakeelwes.com/project-sontag.html), 2023. The artist's page describes text-to-image and image-to-language interpretation of Sontag's essay, and documents single-channel and three-channel versions. AI Telephone explores a related translation process with a recursive chain: each generated interpretation becomes the next image prompt. This project is an independent implementation; it does not include the artist's footage, code or Sontag's essay.
+If Hugging Face returns an access restriction, setup explains where to sign in and accept any applicable model terms **using your own account**, then asks for your own read token with hidden input. The Hugging Face library stores authentication in your user cache, not this repository. You can instead authenticate with `hf auth login` in the model environment or set `HF_TOKEN` privately before launching. Never put tokens in source files, screenshots, prompts or shared launchers. The launcher does not load `.env` files.
 
-```text
-HOST / MacBook Pro
-Original prompt → SD-Turbo → PNG pixels → Qwen2.5-VL → description
-                    ↑                                     │
-                    └─────────────────────────────────────┘
-                               │
-                  completed image + description
-                               │ LAN
-                  ┌────────────┴─────────────┐
-             /image display             /text display
-             Mac or Windows             Mac or Windows
-```
+Existing model files are reused. Setup checks every required SD-Turbo file at its pinned revision and the selected Ollama model tag. It does not update an already installed Ollama model. Rerun the launcher after an interrupted download to resume missing files. Once setup is complete, SD-Turbo inference runs with Hugging Face offline mode enabled. Internet is needed again only when dependencies or model files are missing, or when selecting an undownloaded vision model.
 
-## First: test the installation without downloading models
+### Hardware
 
-Copy this entire `ai-telephone` folder to the host. In a terminal opened inside it:
+- **Apple Silicon Mac:** uses PyTorch MPS with float32 arithmetic, retaining the fix for invalid/black frames.
+- **Windows with supported NVIDIA GPU:** setup chooses a CUDA PyTorch wheel and checks that an actual GPU kernel runs. CUDA 12.6 is the default for older GPU architectures; newer architectures use CUDA 12.8. An appropriate NVIDIA driver is required.
+- **CPU fallback:** supported, including computers without a supported GPU, but generation can be slow. Intel Macs and Windows ARM machines are not validated targets for the pinned dependencies; install failures are reported rather than claiming universal GPU support.
 
-```sh
-python app.py --simulated-demo
-```
+The launcher prints the actual device. If you expected NVIDIA acceleration but it reports CPU, check your driver and GPU compatibility. AMD/Intel GPU acceleration on Windows is not implemented by this adapter. A historical Windows run used an RTX 3060 12 GB; a historical Mac run used Apple M5 with 16 GB. Those are tested configurations, not minimum specifications or performance guarantees.
 
-On a Mac, use `python3` if `python` is unavailable. Demo mode needs Python 3.11 or newer and **no packages**. It plays 18 bundled 1440 × 1080 procedural abstract artworks with scripted interpretations. These are illustrative simulated data, not outputs of image/vision inference or experimental evidence. A fixed starting prompt is used; custom prompts belong to real mode. Each scripted interpretation becomes the next recorded input, while imagery is pre-authored rather than generated from that input. The default demo finishes after 18 iterations; smaller limits are supported. No downloads or model packages are needed. Provenance is visible on displays and saved in manifests and iteration records. All three screens use a black background.
+## Modes and shortcuts
 
-Open the **Controls** URL printed by the terminal on the host. Its temporary token is stored in that browser tab's session storage and removed from the address bar. Enter a prompt, set a small iteration limit, and start.
-
-On the two other laptops, open these addresses with the host's actual LAN IP:
-
-```text
-http://HOST-LAN-IP:8765/image
-http://HOST-LAN-IP:8765/text
-```
-
-Click **Fullscreen** on each. Escape exits fullscreen. If fullscreen is unsupported, use the browser's fullscreen menu. Keep all laptops plugged in with sleep disabled; screen wake locks often require HTTPS and are only a best-effort enhancement here.
-
-## Real models on Apple Silicon
-
-Install native ARM64 **Python 3.11 or 3.12** and [Ollama](https://ollama.com/download). The pinned inference environment is not intended for Python 3.14. Keep the Ollama application running, or run `ollama serve` in a separate terminal if it is not already serving.
-
-From this folder:
-
-```sh
-python3.12 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
-ollama pull qwen2.5vl:3b
-python prepare.py
-python -m unittest -v test_app
-```
-
-`prepare.py` downloads image weights, checks the vision model, reports `mps`, `cuda` or `cpu`, and writes `environment.json` plus `environment-lock.txt`. **On the Mac, expect `mps`.** If it says `cpu`, check that Python is ARM64 and PyTorch supports your macOS/device before an exhibition.
-
-After setup, run without Hugging Face network access:
-
-```sh
-export HF_HUB_OFFLINE=1
-export HF_HUB_DISABLE_TELEMETRY=1
-caffeinate -i python app.py
-```
-
-`caffeinate -i` keeps the Mac from idle sleep while the host runs. The host always calls Ollama at `127.0.0.1:11434`; no image or text requests go to cloud model APIs. Do not expose Ollama to the LAN. Leave it exclusively for this installation during a performance so other workloads do not compete for memory.
-
-The SD-Turbo worker starts and exits for **each image**, then Ollama loads vision and is asked to unload after its reply. This favours predictable memory use over maximum speed. Model reloads are part of the iteration time.
-
-## Model choices
-
-| Purpose | Implemented choice | Practical use |
+| Task | Mac | Windows |
 |---|---|---|
-| Image generation | `stabilityai/sd-turbo`, 512 × 512, 1–4 steps, guidance 0 | Start at one step for a fast baseline. More steps are an artistic setting to test. |
-| Interpretation | `qwen2.5vl:3b` via Ollama | Default. Smallest supported option, good starting point for this installation. |
-| Interpretation alternative | `qwen2.5vl:7b` via Ollama | Pull it first, then choose it in controls. Try when memory and latency allow. |
+| Open controller / live demo | `Start-AI-Telephone.command` | `Start-AI-Telephone.cmd` |
+| Continuous real generation | `Continuous-Testing.command` | `Continuous-Testing.cmd` |
+| Automated recording and exports | `Capture-Midterm.command` | `Capture-Midterm.cmd` |
+| Real capture plus promotional video/poster | `Run-Promotional-Demo.command` | `Run-Promotional-Demo.cmd` |
+| Generate a fixed 18-frame real chain | `Generate-Real-Demo.command` | `Generate-Real-Demo.cmd` |
 
-SD-Turbo's model card specifies one-step generation, guidance 0 and preferred 512 × 512 output. Review its model licence for your exhibition's use: [SD-Turbo model card](https://huggingface.co/stabilityai/sd-turbo).
+`Live-Demo` and `Play-Real-Demo.command` remain aliases for the live controller. They perform fresh inference. Use the controller's **Replay run** for saved playback.
 
-Ollama lists Qwen2.5-VL 3B at about **3.2 GB** and 7B at **6 GB** of model files. Those figures are **not total runtime RAM**. See [Ollama's Qwen2.5-VL models](https://ollama.com/library/qwen2.5vl). Ollama 0.7.0 or newer is required by this model family; record the exact version used for the installation.
+In the controller, **Live demo** defaults to 18 iterations; **Continuous testing** runs until Stop. You can switch modes before starting. The 3B vision model is the default; selecting 7B downloads it automatically on first use if absent. Downloads show as a model-download phase; progress is printed in the terminal. Stop during an active download or model call waits for that operation to finish or fail.
 
-My planning recommendation is to start with the 3B configuration on a 16 GB machine and allow more memory headroom at 24–32 GB. These are planning estimates, not validated minimums. Avoid jumping to much larger models before measuring a 20-iteration run. Watch macOS Activity Monitor's memory pressure and use the recorded iteration durations to choose the hold time. This project has **not been benchmarked on an M5**; no seconds-per-image claim is made. Diffusers documents the Apple Silicon MPS path here: [MPS support](https://huggingface.co/docs/diffusers/optimization/mps).
+Capture and promotional dependencies are installed automatically only when those workflows are requested. See [CAPTURE.md](CAPTURE.md) for output details. Promotional mode regenerates named files in `promotional-output/`; it preserves original capture/run folders.
 
-SDXL / FLUX and MLX / Core ML engines are potential future adapters, not implemented options in this version. SD-Turbo was chosen to get a portable, relatively small baseline working first.
+### Terminal options
 
-## Windows
+Run these from the project folder with Python 3.11/3.12. You do not need to activate an environment; the launcher selects or creates one.
 
-**Display laptops:** no Python, Ollama or model installation is needed. Open the host's `/image` or `/text` URL in a current browser.
+```sh
+python launch.py                         # Setup, then open the controller
+python launch.py --mode setup            # Prepare models without starting the web host
+python launch.py --check                 # Read-only check; no installs, downloads or service starts
+python launch.py --mode testing          # Continuous mode selected in the controller
+python launch.py --mode simulated        # Bundled simulated art; no packages/models required
+python launch.py --vision-model qwen2.5vl:7b
+python launch.py --bind 127.0.0.1 --port 8766 --no-browser
+python launch.py --mode capture -- --prompt "A glass horse in a flooded library" --iterations 12
+python launch.py --mode capture -- --mock --iterations 3 --hold 1
+python launch.py --mode promo -- --iterations 12
+```
 
-**Windows as the host:** the controller, demo, history and adapters use the same code. Install Python 3.12 and Ollama, then run PowerShell from this folder:
+On Mac, use `python3.12` or `bash Start-AI-Telephone.command` in place of `python` if needed. On Windows, use `py -3.12` or `Start-AI-Telephone.cmd`. The double-click launchers also accept these options from a terminal. `--` separates capture options from launcher options.
+
+Windows troubleshooting overrides:
 
 ```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-ollama pull qwen2.5vl:3b
-.\.venv\Scripts\python.exe prepare.py
-$env:HF_HUB_OFFLINE = '1'
-$env:HF_HUB_DISABLE_TELEMETRY = '1'
-.\.venv\Scripts\python.exe app.py
+.\Start-AI-Telephone.cmd --torch-backend cpu
+.\Start-AI-Telephone.cmd --torch-backend cu126
+.\Start-AI-Telephone.cmd --torch-backend cu128
 ```
 
-The image worker selects CUDA if the installed PyTorch build and NVIDIA driver support it, otherwise CPU. CPU fallback is useful for diagnosis but may be impractically slow. For GPU package selection use the official [PyTorch installation instructions](https://pytorch.org/get-started/locally/) and preserve the resulting environment lock. Windows GPU inference has not been tested here.
+An explicit backend may reinstall PyTorch. The wheel choices follow [PyTorch's versioned installation commands](https://pytorch.org/get-started/previous-versions/). GPU selection changes image generation only; Ollama manages its own vision-model device.
 
-## LAN setup
+## Displays and LAN
 
-1. Connect all three laptops to the same trusted private network; Ethernet is preferable for an exhibition.
-2. Find the Mac's IP in its active network connection details, or with `ipconfig getifaddr en0` if Wi-Fi is on `en0`. On Windows, inspect `ipconfig` for the active adapter's IPv4 address.
-3. Allow the host's Python process / TCP port **8765** through its firewall on the private network. The app binds to `0.0.0.0` by default. Use `--bind 127.0.0.1` for host-only testing.
-4. Open the display links on both other laptops. If unreachable, check guest Wi-Fi/client isolation, VPNs, the firewall and the chosen IP.
-5. Reserve the host's IP in the router if the installation will run repeatedly.
+The browser opens the host-only controller with its temporary authentication token. Keep that tab. The terminal also prints the control URL. A second launcher refuses to start on an occupied port; use the original control link/tab or choose another port.
 
-The browser displays poll once per second, preserve the last pair if disconnected, and reconnect automatically. The host publishes only completed pairs; the two laptops may change up to roughly one polling interval apart. This is **not frame-accurate synchronisation**. A new run keeps the previous pair on the walls until its first pair is ready.
+On the host:
 
-This is a trusted-LAN HTTP installation, not an internet-facing service. Do not port-forward it. The image and caption displays are public on that LAN. Controls and private history require both a loopback connection on the host and the random control token; no token belongs in the display URLs.
+- `http://127.0.0.1:8765/combined` — image, caption and original prompt.
+- `http://127.0.0.1:8765/image` — image only.
+- `http://127.0.0.1:8765/text` — interpretation only.
 
-## Controls and performance operation
+For additional Mac/Windows display laptops, connect to the same trusted private network and replace `127.0.0.1` with the host's LAN IPv4 address. Find it in network settings or `ipconfig` on Windows. Allow the host Python process/TCP port 8765 through the private-network firewall. No model installation is needed on display laptops. Use Fullscreen on each display.
 
-- **Start new chain:** uses the entered prompt only for iteration 1. Later image prompts are exactly the previous caption, including any drift or model mistakes.
-- **Stop:** prevents another step. A call already in flight finishes or times out; its unfinished pair is discarded. The UI shows `stopping` until then. Image worker timeout: 900 seconds; vision HTTP socket timeout: 300 seconds. These intentionally allow slow local hardware.
-- **Iteration limit:** 0 runs until stopped; any positive value stops after that many completed pairs.
-- **Hold:** extra seconds after a completed pair; generation and interpretation add their own time. There is no fixed frame rate.
-- **Seeds:** image and vision use `starting seed + iteration - 1`, wrapping at 2³¹. Settings are fixed for the duration of a chain; changes apply on the next start.
-- **Archive:** choose a saved run, page through iterations, inspect the image inputs, and replay a pair while stopped.
-- **Errors:** stop the chain and preserve the last successful pair. Read Activity and `worker.log`, resolve the issue, and start a new chain.
-- **Shutdown:** stop the chain, wait for it to settle, then press Ctrl+C in the host terminal. A forced interruption leaves committed history intact. A restarted host stays idle; it never silently resumes a chain.
+The launcher prevents idle sleep on Mac/Windows while the application runs. Keep laptops plugged in. Displays poll once per second, retain the last completed pair on disconnect, and reconnect automatically; this is not frame-accurate synchronization. Use `--bind 127.0.0.1` for host-only operation. Ollama remains on `127.0.0.1:11434`; do not expose it to the LAN.
 
-Before opening to an audience, run at least 20 real iterations on the target host, confirm memory pressure stays acceptable, test both display laptops, disconnect/reconnect one display, and test Stop during both model phases. The browser-only demo cannot establish real model performance.
+## Setup storage and troubleshooting
 
-## Prompt isolation
+New environments live under `.runtime/<os>-<architecture>/`, which is ignored by Git. A valid existing `.venv-mac` (Mac) or `.venv` (Windows) is reused. Copied or relocated environments are checked before use; an unusable managed environment is preserved under a timestamped name and recreated. Do not distribute virtual environments as portable installations. Model weights live in each user's Hugging Face/Ollama caches and are checked on that computer.
 
-The original prompt is present only in the controller's private run state, on disk, and in the image worker's input. It is never included in public state or the vision API request.
+- **No supported Python:** install 3.11/3.12 and rerun. Model dependencies are pinned for these versions.
+- **Ollama won't start:** open the Ollama app and retry. See `tmp/ollama-launch.log`.
+- **Download interrupted:** reconnect and rerun. Existing cached files are reused. Check free disk space.
+- **Missing weights with `HF_HUB_OFFLINE` enabled:** unset that variable during setup. The launcher enables it only after checking the image files.
+- **CUDA cannot run:** update the NVIDIA driver or use CPU override. An incompatible GPU does not become supported merely by installing a CUDA wheel.
+- **Port occupied:** stop the existing instance or use `--port 8766`; use the printed links with the new port.
+- **Slow chain:** each iteration includes image loading/generation, vision loading/interpretation and the configured hold. Start with 3B and one image step.
+- **Model error:** the previous successful pair remains visible. Read Activity and the run's `worker.log`; resolve the issue and start a new chain.
 
-`image_worker.py` reconstructs a PNG from RGB pixels to strip image metadata. `LocalModels.describe()` accepts image bytes and model/seed settings; it receives no run, original prompt or history. Every Ollama call constructs a fresh one-message request containing the image and a constant instruction to describe visible content. No tools or previous conversation are supplied. `keep_alive: 0` requests model unloading. See [Ollama chat API](https://docs.ollama.com/api/chat).
+`prepare.py` also remains available for manually managed environments. `python prepare.py` starts/checks Ollama and downloads missing models; `python prepare.py --check` inspects only. Setup records this host's packages, device, Ollama version and model digests in `environment.json` and `environment-lock.txt`. These local records are ignored by Git.
 
-This is **model-context and process separation**, not an operating-system security sandbox. The host account can read its own files. A model may infer the initial idea from pixels, and text drawn inside an image remains visible. The fixed instruction tells the vision model to treat image text as content, not commands; it cannot guarantee a model will always comply. These effects are part of the experiment's limits.
-
-## History, logs and reproducibility
-
-Each run is saved under `runs/<random-id>/`:
+## Model and data behavior
 
 ```text
-manifest.json       original prompt, settings, model revision, software versions,
-                    Ollama model digests, fixed vision instruction, run status
-000001.png          generated RGB image (no prompt metadata)
-000001.json         input, caption, seed, timestamp, duration, image SHA-256
-events.jsonl        phase events and errors
-worker.log          image process output and diagnostics
+Starting prompt → SD-Turbo → PNG pixels → Qwen2.5-VL → description
+                      ↑                                  │
+                      └──────────────────────────────────┘
 ```
 
-The six-digit JSON file is the commit marker for each iteration. Temporary/incomplete images are not published. Runs left `running` after a crash appear as `interrupted` on restart. History and replay survive restarts; exact in-place continuation is not implemented.
+SD-Turbo generates 512 × 512 images with 1–4 steps and guidance 0. The image-model revision is pinned to `b261bac6fd2cf515557d5d0707481eafa0485ec2`. Qwen2.5-VL 3B or 7B receives a fresh one-message request with image pixels and a fixed instruction to describe visible content. It never receives the original generation prompt, run history or tools. PNG metadata is stripped. Each caption becomes exactly the next image prompt.
 
-The image model is pinned to immutable Hugging Face revision `b261bac6fd2cf515557d5d0707481eafa0485ec2`. Direct Python dependencies are pinned in `requirements.txt`; `prepare.py` captures all installed package versions in a per-host lock and records Ollama's version/model digests. Each real run records that runtime information again. Preserve the lock, model caches and manifests when archiving an exhibition. Ollama tags can change: do not pull new weights mid-exhibition, and compare the recorded digests when reproducing a run.
+A separate image subprocess exits after each generation; Ollama is asked to unload vision after each description. This limits memory overlap at the expense of model reload time. Identical seeds do not guarantee identical pixels across devices/library versions. Review the [SD-Turbo model card](https://huggingface.co/stabilityai/sd-turbo) and applicable model terms for your use.
 
-Reinstall a captured Python environment with `python -m pip install -r environment-lock.txt` on an equivalent OS/Python environment. There is no universal hash-locked cross-platform dependency file here. Identical seeds do not guarantee bit-identical output across Apple/CUDA/CPU devices or library versions.
+Controls and history require both a loopback connection and the random controller token. `/api/state`, `/image` and `/text` omit the original prompt. **`/combined` intentionally shares it**, through `/api/combined-state`. Images/captions and that combined prompt are visible to anyone who can access the host on the LAN. This is a trusted-LAN HTTP installation, not an internet-hosted service. Model context separation is not an OS security sandbox.
 
-History grows until you remove it; no automatic deletion is performed. Monitor free disk space for continuous installations. Back up whole run folders, and manage them only while the host is stopped. Disk files contain the original prompt and are private to the host user, not encrypted.
+Each original run is saved under `runs/<random-id>/`:
 
-## Verification and files
+```text
+manifest.json      Original prompt, settings, model/runtime provenance and status
+000001.png         Generated RGB pixels
+000001.json        Exact input, caption, seed, duration, time and image hash
+prompts.txt        Readable incremental prompt/interpretation export
+prompts.jsonl      Structured incremental export
+worker.log         Image worker diagnostics
+events.jsonl       Phase/error events
+```
+
+The numbered JSON is the commit marker; unfinished pairs are discarded. Stop finishes the current call before settling (image timeout 900 seconds; vision socket timeout 300 seconds). Saved runs survive restart; automatic in-place continuation is not implemented. Replay checks image hashes and does no inference or rewriting of original records. Reset clears displays while retaining history.
+
+Saved prompt files are private host files, not encrypted. History grows until you remove it. Back up whole run folders and manage them while stopped. Preserve per-host locks/caches for reproducibility; the captured lock is not a universal cross-platform installer.
+
+## Verification and implementation
+
+In the model environment:
 
 ```sh
-python -m unittest -v test_app
+python -m unittest -v test_launch test_app test_capture
 ```
 
-Tests cover feedback chaining, seed order, a fresh image-only vision payload, public API privacy, protected history, path traversal rejection, persistence/replay, failures and stop/concurrent-start behaviour. Tests use mock models and make no AI-service calls.
+The suite checks setup reuse, incomplete caches, download/authentication paths, GPU-wheel selection, feedback chaining, prompt isolation, stop/failure behavior, persistence/replay, HTTP access and a complete mock MP4 capture. Setup tests simulate missing models rather than downloading GB of weights.
 
-Optional browser acceptance test (requires Node.js):
+Optional browser acceptance (Node.js):
 
 ```sh
 npm install --no-save playwright
@@ -183,45 +153,17 @@ npx playwright install chromium --only-shell
 node smoke-browser.cjs
 ```
 
-It starts a disposable local demo, drives the control UI, checks both displays and history replay, and writes screenshots. It uses port 8766. Set `PYTHON` to the Python executable if `python` is not on PATH.
+Set `PYTHON` to the model environment's interpreter if needed. Hardware validation and historical results are in [VALIDATION.md](VALIDATION.md).
 
-Implementation map: `app.py` owns orchestration/storage/HTTP, `models.py` owns model boundaries, `image_worker.py` runs diffusion, `prepare.py` prepares the environment, and `web/` contains the three browser views. There is no frontend build or CDN dependency.
+| Files | Responsibility |
+|---|---|
+| `launch.py`, `Start-AI-Telephone.*` | Shared bootstrap, dependency setup and guided launch |
+| `prepare.py` | Ollama startup, cache verification, downloads and environment records |
+| `app.py` | Feedback loop, storage, HTTP routes and replay |
+| `models.py`, `image_worker.py` | Local inference boundaries and diffusion worker |
+| `web/` | Controller and display pages; no build/CDN dependency |
+| `capture.py`, `build_promo.py`, `capture_browser.cjs` | Recording, exports and promotional assets |
+| `demo/` | Explicitly simulated artwork/interpretation sequence |
+| `platformio.ini`, `src/main.cpp` | Separate ESP32/LD2450 radar experiment, not wired into AI Telephone |
 
-## Automated midterm capture
-
-See [CAPTURE.md](CAPTURE.md) for the one-off automatic mode. It starts a finite chain, saves clean image/text frames during the run, and records the live output to MP4. The final exports include a poster contact sheet, subtitle file, transcript, CSV and full iteration history.
-
-After model setup, run `python capture.py`, or use `Capture-Midterm.ps1` on Windows and `bash Capture-Midterm.command` on Mac. The default uses real models. Use `--mock` for a clearly labelled recording-only test.
-
-## Mac real-model demo
-
-This Mac uses a separate `.venv-mac` environment (Python 3.11), with half-precision SD-Turbo downloads (~2.6 GB; full-precision arithmetic on the Apple GPU to avoid invalid/black pixels) and Qwen2.5-VL 3B (~3.2 GB). The existing Windows environment is preserved.
-
-Start the local vision server with `/opt/homebrew/bin/ollama serve` if it is not already running. Double-click `Generate-Real-Demo.command` to produce 18 actual local image→vision iterations at 512 × 512, four image steps per frame. Each vision call receives only the image pixels; its caption becomes the next input. Output and model provenance are saved in `runs/`. This is the baseline model's native resolution, not the simulated artwork's 1440 × 1080 size.
-
-After generation completes, double-click `Play-Real-Demo.command`. Open the printed Controls URL on the Mac, choose **Play recorded chain**, and use `/image` and `/text` on the display laptops. Playback runs without inference, checks original image hashes and feedback links, and is labeled **Recorded real-model chain**. It finishes after 18 frames by default; press Play again to restart. `--demo` still selects the separate simulated artwork sequence.
-
-The original inference records preserve model/environment information and generation timings. Playback records identify their source run and preserve source iteration metadata; their elapsed times describe replay, not inference speed.
-
-## Live demo and continuous testing on this Mac
-
-`Live-Demo.command` (also `Play-Real-Demo.command`) starts real models, not recordings. `Continuous-Testing.command` opens the same controller with continuous testing selected. Both accept your own starting prompt. Choose the mode in the controller: **Live demo** defaults to 18 freshly generated iterations, with an adjustable limit; **Continuous testing** enforces no iteration limit and runs until Stop. Switching modes never overwrites your typed prompt. The caption from each image becomes the next image prompt, with isolated vision requests. Stop waits for the active model call and discards an unfinished pair.
-
-Terminal equivalents: `.venv-mac/bin/python app.py --demo` and `.venv-mac/bin/python app.py --testing`. Only `--simulated-demo` selects the separate artificial test sequence. The explicit `--recorded-demo` option remains available for archive playback but is not used by either live launcher. Black backgrounds and `/image`, `/text`, `/combined` views are preserved.
-
-
-## Automatic image and prompt saving
-
-Both live demo and continuous testing save every completed iteration immediately in `runs/<run-id>/`. PNGs are named `000001.png`, `000002.png`, etc. Each run contains `prompts.txt` (readable original prompt, exact input for each image, interpretation/next prompt, image filename and seed) and `prompts.jsonl` (one structured record per completed iteration). Individual numbered JSON records and the manifest are also retained. Exports update as the chain runs, so completed images/prompts remain available after Stop or a later model error. An unfinished iteration is discarded. Every new run gets its own folder, preserving earlier runs. Prompt exports are private host files and are not served to display laptops.
-
-
-## Replay a whole saved run
-
-In the controller’s Iteration archive, choose a saved run, set Playback hold in seconds, and click Replay run. Images and exact saved interpretations play chronologically on `/combined`, `/image`, and `/text`. Optional Loop until Stop repeats the sequence. Stop interrupts playback promptly. No models are called; original images, prompts, timings and manifests remain unchanged. Playback is explicitly labeled, and cannot overlap live generation.
-
-
-## Original prompt and readable replay
-
-The combined page displays a labeled original starting prompt above the image/interpretation pair, including during saved-run replay. This display intentionally shares the original prompt through `/api/combined-state`; `/image`, `/text`, and `/api/state` continue to omit it, and the vision model still receives only pixels. Reset clears the original prompt too. Long originals can be scrolled in their dedicated area.
-
-Whole-run replay defaults to Reading pace: at least 12 seconds per frame, roughly 150 words per minute plus a 3-second margin. The first frame includes extra time for the original prompt. Uncheck Reading pace to choose a fixed custom hold. No model inference is performed during playback.
+Artistic and visual reference: Jake Elwes, [A.I. Interprets A.I. Interpreting ‘Against Interpretation’](https://www.jakeelwes.com/project-sontag.html), 2023. This is an independent implementation; it includes none of the artist's footage, code or Sontag's essay.

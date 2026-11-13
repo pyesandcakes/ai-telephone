@@ -58,7 +58,7 @@ class DemoModels:
     """Fixed authored playback. Neither adapter performs model inference."""
     def __init__(self):
         self.folder = Path(__file__).with_name("demo")
-        self.sequence = json.loads((self.folder / "sequence.json").read_text())
+        self.sequence = json.loads((self.folder / "sequence.json").read_text(encoding="utf-8"))
         self.index = 0
 
     def generate(self, prompt, destination, settings, seed, log_path):
@@ -82,10 +82,10 @@ class RecordedModels:
     def __init__(self, folder):
         import hashlib
         self.folder = Path(folder)
-        self.manifest = json.loads((self.folder / "manifest.json").read_text())
+        self.manifest = json.loads((self.folder / "manifest.json").read_text(encoding="utf-8"))
         if self.manifest.get("demo") or self.manifest.get("recorded"):
             raise ValueError("Playback requires an original real-model run")
-        self.frames = [json.loads(f.read_text()) for f in sorted(self.folder.glob("[0-9]" * 6 + ".json"))]
+        self.frames = [json.loads(f.read_text(encoding="utf-8")) for f in sorted(self.folder.glob("[0-9]" * 6 + ".json"))]
         if not self.frames:
             raise ValueError("Recording has no completed iterations")
         self.captions = {}

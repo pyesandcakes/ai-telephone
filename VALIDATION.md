@@ -1,3 +1,14 @@
+# Current launcher validation — 13 November 2026
+
+- 38 automated tests passed under the existing Mac Python 3.11 environment: setup/cache/authentication branches, CUDA wheel selection, a complete launcher-to-HTTP simulated chain, feedback/storage/privacy, Unicode replay, and mock recording with a decodable MP4.
+- `bash Start-AI-Telephone.command --check` passed against local Ollama, the existing SD-Turbo/Qwen2.5-VL 3B caches and the MPS GPU. Setup successfully started Ollama when it was stopped and reused existing models without downloads.
+- A fresh real one-iteration capture passed through `launch.py --mode capture`: SD-Turbo generated a nonconstant 512 × 512 image, Qwen returned a caption, the image hash matched, the final iteration appeared in the timeline, and the MP4 decoded without errors. The particular iteration took 27.669 seconds; this is not a general benchmark. Validation outputs are under `/tmp/ai-telephone-real-smoke-20261113/`, not committed project assets.
+- Python compilation, JavaScript syntax checks, shell syntax checks and `git diff --check` passed. The pinned promotional dependencies resolved successfully with a pip dry run.
+- The updated Windows scripts were inspected but were **not executed on Windows during this change**. CUDA-selection behavior is covered with simulated hardware results. Fresh Windows installation, physical LAN displays, browser UI acceptance and gated-account authentication still need target-environment validation. Authentication/download tests use test doubles and no private credentials.
+- The historical records below describe earlier project versions; their test counts and limitations are not the current regression-suite totals.
+
+---
+
 # Validation — 8 October 2026
 
 Verified on this Windows development host:
