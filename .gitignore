@@ -15,3 +15,6 @@ real-demo.json
 .runtime/
 .env
 .env.*
+downloads/*
+!downloads/AI-Telephone-Mac.zip
+!downloads/AI-Telephone-Windows.zip

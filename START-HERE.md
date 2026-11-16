@@ -1,8 +1,16 @@
 # Run AI Telephone
 
+Download the ZIP for your operating system and **extract it first**. Keep the
+entire extracted `AI-Telephone` folder together. Do not launch files from inside
+the ZIP preview.
+
 **Mac:** double-click `Start-AI-Telephone.command`.
 
 **Windows:** double-click `Start-AI-Telephone.cmd`.
+
+A terminal window opens automatically to show setup progress. You do not need
+to open Terminal yourself or type any commands. Leave that window open while
+using the system.
 
 The launcher guides you through installing Python 3.12 and Ollama if missing, installs the project dependencies, downloads missing models, and opens the controller. First setup needs internet and several GB of disk space. No paid API key is needed. If model access requires authentication, use your own Hugging Face account.
 

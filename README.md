@@ -4,7 +4,28 @@ An image becomes language. Language becomes the next image. SD-Turbo generates i
 
 ## Start here
 
-1. Download/copy the whole project folder and extract it if zipped.
+Download the package for your computer:
+
+| Computer | Download | After extracting, double-click |
+|---|---|---|
+| Mac | [AI-Telephone-Mac.zip](downloads/AI-Telephone-Mac.zip) | `Start-AI-Telephone.command` |
+| Windows | [AI-Telephone-Windows.zip](downloads/AI-Telephone-Windows.zip) | `Start-AI-Telephone.cmd` |
+
+These ZIPs are included in this repository and can also be attached to a
+[GitHub Release](https://github.com/pyesandcakes/ai-telephone/releases).
+On GitHub, open the ZIP link and click **Download raw file**, or download the
+matching ZIP from a release's **Assets** list. Choose the OS-specific ZIP rather
+than GitHub's automatically generated **Source code** archives.
+
+Extract the ZIP first and keep the whole `AI-Telephone` folder together.
+The launcher opens its own progress window; you do not need to open Terminal
+yourself or type commands. Mac launchers include executable permissions.
+macOS may still require one-time approval in **System Settings → Privacy & Security**.
+
+Packages exclude virtual environments, credentials, saved runs and large
+promotional exports. Model weights download separately on your computer.
+
+1. Download the Mac or Windows ZIP above and extract it.
 2. Double-click **`Start-AI-Telephone.command` on Mac** or **`Start-AI-Telephone.cmd` on Windows**.
 3. If Python is missing, the launcher opens its download page. Install **Python 3.12** (3.11 also works; [3.12 installers](https://www.python.org/downloads/release/python-31210/)), then double-click again. On Windows, include the Python launcher when installing. The pinned model packages do not target Python 3.13 or newer.
 4. If Ollama is missing, setup opens [Ollama's installer page](https://ollama.com/download). Install and open Ollama, then press Enter in the setup terminal to continue.
@@ -136,6 +157,27 @@ The numbered JSON is the commit marker; unfinished pairs are discarded. Stop fin
 Saved prompt files are private host files, not encrypted. History grows until you remove it. Back up whole run folders and manage them while stopped. Preserve per-host locks/caches for reproducibility; the captured lock is not a universal cross-platform installer.
 
 ## Verification and implementation
+
+### Preparing a GitHub release
+
+After changing the application or instructions, regenerate the packages from
+the project folder:
+
+```sh
+python build_downloads.py
+```
+
+Commit the updated source, documentation, and both ZIPs in `downloads/`.
+When creating the GitHub release, attach these two files as release assets:
+
+- `downloads/AI-Telephone-Mac.zip`
+- `downloads/AI-Telephone-Windows.zip`
+
+The builder preserves executable permissions for Mac launchers and packages only
+the files needed for setup, running and exports. Do not upload your virtual
+environment, model caches, credentials or personal run folders.
+
+### Checks
 
 In the model environment:
 
