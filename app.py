@@ -1,5 +1,8 @@
 """AI Telephone host: Python 3.11+, standard-library server, local-only controls."""
 import argparse
+import base64
+import io
+import warnings
 import copy
 import hashlib
 import ipaddress
@@ -90,7 +93,35 @@ class Installation:
 
     def start(self, data):
         prompt = data.get("prompt", "")
-        if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 4000:
+        input_type = data.get("input_type", "text")
+        if input_type not in ("text", "photo"):
+            raise ValueError("Choose Text or Photo")
+        photo = None
+        if input_type == "photo":
+            if self.recorded or (self.demo and type(self.adapter) is DemoModels):
+                raise ValueError("Photo starts require live models")
+            from PIL import Image, ImageOps
+            try:
+                encoded = data.get("photo", "")
+                if not isinstance(encoded, str) or len(encoded) > 14_000_000:
+                    raise ValueError("Choose an image up to 10 MB")
+                raw = base64.b64decode(encoded, validate=True)
+                if not raw or len(raw) > 10 * 1024 * 1024:
+                    raise ValueError("Choose an image up to 10 MB")
+                with warnings.catch_warnings():
+                    warnings.simplefilter("error", Image.DecompressionBombWarning)
+                    with Image.open(io.BytesIO(raw)) as image:
+                        if image.format not in ("JPEG", "PNG", "WEBP"):
+                            raise ValueError("Choose a JPEG, PNG, or WebP image")
+                        image = ImageOps.exif_transpose(image).convert("RGB")
+                        image.thumbnail((2048, 2048))
+                        output = io.BytesIO()
+                        image.save(output, format="PNG")
+                        photo = output.getvalue()
+            except (ValueError, OSError, Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
+                raise ValueError("Choose a valid JPEG, PNG, or WebP image up to 10 MB") from exc
+            prompt = ""
+        elif not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 4000:
             raise ValueError("Enter a prompt of 1–4000 characters")
         settings = settings_from(data)
         run_mode = data.get("mode")
@@ -118,7 +149,9 @@ class Installation:
             run_id = uuid.uuid4().hex
             folder = self.root / run_id
             folder.mkdir()
-            self.current = {"id": run_id, "created": now(), "original_prompt": prompt.strip(),
+            if photo is not None:
+                (folder / "initial.png").write_bytes(photo)
+            self.current = {"input_type": input_type, "initial_image": "initial.png" if photo is not None else None, "id": run_id, "created": now(), "original_prompt": prompt.strip(),
                             "settings": settings, "mode": run_mode, "demo": self.demo, "status": "running",
                             "python": platform.python_version(), "platform": platform.platform(),
                             "vision_instruction": VISION_INSTRUCTION,
@@ -126,8 +159,8 @@ class Installation:
                             "provenance": "Recorded real-model outputs; replay, no new inference" if self.recorded else "Simulated artwork and scripted interpretations; no model inference" if self.demo else "Local model inference"}
             save_json(folder / "manifest.json", self.current)
             (folder / "prompts.txt").write_text(
-                f"AI Telephone — run {run_id}\n{self.current['provenance']}\n"
-                f"Original prompt:\n{prompt.strip()}\n\n"
+                f"AI Telephone — run {run_id}\n{self.current['provenance']}\n" +
+                (f"Original photo: initial.png\nLoop: photo → interpretation → image → …\n\n" if photo is not None else f"Original prompt:\n{prompt.strip()}\n\n") +
                 "Each completed image is listed below with its exact generation prompt "
                 "and vision interpretation.\n\n", encoding="utf-8")
             (folder / "prompts.jsonl").touch()
@@ -176,9 +209,13 @@ class Installation:
                 seed = (settings["seed"] + count - 1) % (2**31)
                 started = time.monotonic()
                 temp_image = folder / "pending.png"
-                self.set_phase("generating image")
-                self.event("image_started", iteration=count, seed=seed)
-                self.adapter.generate(prompt, temp_image, settings, seed, folder / "worker.log")
+                uploaded = count == 1 and run.get("input_type") == "photo"
+                if uploaded:
+                    temp_image.write_bytes((folder / "initial.png").read_bytes())
+                else:
+                    self.set_phase("generating image")
+                    self.event("image_started", iteration=count, seed=seed)
+                    self.adapter.generate(prompt, temp_image, settings, seed, folder / "worker.log")
                 if self.stop_event.is_set():
                     break
                 self.set_phase("interpreting image")
@@ -190,7 +227,7 @@ class Installation:
                 filename = f"{count:06d}.png"
                 os.replace(temp_image, folder / filename)
                 record = {"iteration": count, "time": now(), "seed": seed,
-                          "input": prompt, "caption": caption, "image": filename,
+                          "input": prompt, "source": "upload" if uploaded else "generated", "caption": caption, "image": filename,
                           "demo": self.demo, "recorded": self.recorded, "provenance": run["provenance"],
                           "source_iteration": self.adapter.frames[count-1] if self.recorded else None,
                           "sha256": hashlib.sha256((folder / filename).read_bytes()).hexdigest(),
@@ -203,7 +240,7 @@ class Installation:
                     export.write(json.dumps(record, ensure_ascii=False) + "\n")
                 with (folder / "prompts.txt").open("a", encoding="utf-8") as export:
                     export.write(f"Iteration {count:06d} — {filename}\nSeed: {seed}\n"
-                                 f"Image prompt:\n{prompt}\n\n"
+                                 f"Image input:\n{'Uploaded photo (initial.png)' if uploaded else prompt}\n\n"
                                  f"Image interpretation / next prompt:\n{caption}\n\n"
                                  "----------------------------------------\n\n")
                 with self.lock:
@@ -435,7 +472,7 @@ def handler_for(installation):
             if not self.admin(): return
             try:
                 length = int(self.headers.get("Content-Length", "0"))
-                if not 0 < length <= 16384:
+                if not 0 < length <= (14_100_000 if urlparse(self.path).path == "/api/start" else 16384):
                     raise ValueError("Request too large or empty")
                 data = json.loads(self.rfile.read(length))
                 if not isinstance(data, dict): raise ValueError("Expected a JSON object")

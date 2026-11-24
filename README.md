@@ -209,3 +209,5 @@ Set `PYTHON` to the model environment's interpreter if needed. Hardware validati
 | `platformio.ini`, `src/main.cpp` | Separate ESP32/LD2450 radar experiment, not wired into AI Telephone |
 
 Artistic and visual reference: Jake Elwes, [A.I. Interprets A.I. Interpreting ‘Against Interpretation’](https://www.jakeelwes.com/project-sontag.html), 2023. This is an independent implementation; it includes none of the artist's footage, code or Sontag's essay.
+
+Start a chain with either **Text prompt** or **Photo upload** using the “Start with” selector. Text starts text → generated image → interpretation; photo starts uploaded photo → interpretation → generated image, then continues the same feedback loop. The uploaded photo counts as iteration 1 and is saved for archive/replay. JPEG, PNG, and WebP files up to 10 MB are supported; images are oriented, stripped of metadata, and resized to fit 2048 × 2048 before interpretation. Photo starts require live models; simulated and recorded demos keep their fixed text start.

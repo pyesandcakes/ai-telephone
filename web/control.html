@@ -5,8 +5,11 @@
 <p id="demo-note" class="demo-note" hidden>SIMULATED DEMO · 18 authored abstract artworks, 1440 × 1080. Interpretations are scripted; no models are running. The fixed starting prompt demonstrates a drift sequence and does not respond to custom prompts.</p>
 <p id="notice" class="notice" role="alert" hidden></p>
 <div class="columns"><section><h2>Begin a chain</h2><form id="start-form">
-<label for="prompt">Original prompt <small>Private · never sent to the vision model</small></label>
-<textarea id="prompt" required maxlength="4000" rows="5" placeholder="A red umbrella floating above an empty swimming pool at night"></textarea>
+<label for="input-type">Start with<select id="input-type"><option value="text">Text prompt</option><option value="photo">Photo upload</option></select></label>
+<p id="loop-order" class="hint">Text → image → interpretation → image → …</p>
+<div id="text-input"><label for="prompt">Original prompt <small>Private · never sent to the vision model</small></label>
+<textarea id="prompt" required maxlength="4000" rows="5" placeholder="A red umbrella floating above an empty swimming pool at night"></textarea></div>
+<div id="photo-input" hidden><label for="photo">Original photo <small>JPEG, PNG, or WebP · up to 10 MB. The first iteration interprets your photo.</small></label><input id="photo" type="file" accept="image/jpeg,image/png,image/webp" disabled></div>
 <label id="mode-label">Run mode<select id="mode"><option value="live-demo">Live demo · real models · 18 iterations by default</option><option value="live-testing">Continuous testing · real models · until Stop</option></select></label>
 <p id="mode-hint" class="hint">Enter your own starting prompt. Every image and interpretation is generated live.</p>
 <div class="settings"><label>Hold between iterations (seconds)<input id="interval" type="number" min="0" max="3600" value="5" step="0.5" required></label>

@@ -91,7 +91,7 @@ async function showHistory() {
     label.textContent = `${item.demo ? "SIMULATED · " : ""}#${item.iteration} · seed ${item.seed} · ${item.seconds}s`;
     caption.textContent = item.caption;
     const details = document.createElement("details"), summary = document.createElement("summary"), input = document.createElement("p");
-    summary.textContent = "Image input (host only)"; input.textContent = item.input;
+    summary.textContent = "Image input (host only)"; input.textContent = item.source === "upload" ? "Uploaded starting photo" : item.input;
     details.append(summary, input); text.append(label, caption, details);
     const button = document.createElement("button"); button.className = "secondary";
     button.textContent = "Replay"; button.disabled = active;
@@ -121,6 +121,11 @@ async function poll() {
       $("mode-label").hidden = state.demo || state.recorded;
       $("mode-hint").hidden = state.demo || state.recorded;
       $("mode").disabled = active;
+      $("input-type").disabled = active || state.demo || state.recorded;
+      if ((state.demo || state.recorded) && $("input-type").value !== "text") {
+        $("input-type").value = "text"; updateInputType();
+      }
+      $("photo").disabled = active || $("input-type").value !== "photo";
       $("demo-note").hidden = !state.demo && !state.recorded;
       if (state.recorded) {
         $("demo-note").textContent = "RECORDED REAL-MODEL CHAIN · Original images and vision interpretations. Playback performs no new inference.";
@@ -176,14 +181,38 @@ function updateMode() {
   $("start").textContent = testing ? "Start continuous testing" : "Start live demo";
   $("mode-hint").textContent = testing ? "Your prompt starts a live feedback chain that keeps generating until you press Stop. Each interpretation becomes the next image prompt." : "Your prompt starts a live feedback chain. It stops at the iteration limit; you can also press Stop at any time.";
 }
+function updateInputType() {
+  const photo = $("input-type").value === "photo";
+  $("text-input").hidden = photo;
+  $("prompt").required = !photo;
+  $("prompt").disabled = photo;
+  $("photo-input").hidden = !photo;
+  $("photo").disabled = !photo;
+  $("photo").required = photo;
+  $("loop-order").textContent = photo ? "Photo → interpretation → image → interpretation → …" : "Text → image → interpretation → image → …";
+}
 if (control) {
+  $("input-type").onchange = updateInputType;
   $("mode").onchange = updateMode;
   $("start-form").onsubmit = async (event) => {
     event.preventDefault(); $("start").disabled = true;
     const data = {prompt: $("prompt").value, vision_model: $("vision_model").value};
     if (!$("mode-label").hidden) data.mode = $("mode").value;
     for (const key of ["interval", "limit", "seed", "steps"]) data[key] = Number($(key).value);
-    try { const result = await api("/api/start", data); selectedRun = result.run; offset = 0; historyKey = ""; notice(""); }
+    try {
+      data.input_type = $("input-type").value;
+      if (data.input_type === "photo") {
+        const file = $("photo").files[0];
+        if (!file || file.size > 10 * 1024 * 1024) throw new Error("Choose a photo up to 10 MB.");
+        data.photo = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result.split(",")[1]);
+          reader.onerror = () => reject(new Error("Could not read this photo."));
+          reader.readAsDataURL(file);
+        });
+        delete data.prompt;
+      }
+      const result = await api("/api/start", data); selectedRun = result.run; offset = 0; historyKey = ""; notice(""); }
     catch(e) { notice(e.message); $("start").disabled = false; }
   };
   $("replay-reading").onchange = () => { $("replay-interval").disabled = $("replay-reading").checked; };

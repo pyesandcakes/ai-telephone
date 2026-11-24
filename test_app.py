@@ -46,6 +46,34 @@ class InstallationTests(unittest.TestCase):
         self.assertFalse(self.app.active())
         return run
 
+    def test_photo_starts_with_vision_then_feeds_generation_and_replays(self):
+        photo = (self.adapter.folder / self.adapter.sequence["frames"][0]["image"]).read_bytes()
+        run = self.app.start({"input_type": "photo", "photo": base64.b64encode(photo).decode(),
+                              "prompt": "Must not reach either model", "limit": 3, "interval": 0})
+        self.app.thread.join(3)
+        self.assertEqual(self.app.phase, "completed", self.app.error)
+        self.assertEqual(self.adapter.inputs, ["Description 1", "Description 2"])
+        folder = Path(self.tmp.name) / run
+        self.assertEqual(self.adapter.pixels[0], (folder / "initial.png").read_bytes())
+        self.assertEqual(self.adapter.pixels[0], (folder / "000001.png").read_bytes())
+        first = json.loads((folder / "000001.json").read_text())
+        self.assertEqual(first["source"], "upload")
+        self.assertEqual(first["input"], "")
+        self.assertEqual(self.app.current["original_prompt"], "")
+        self.app.replay(run, 1)
+        self.assertEqual(self.app.published["caption"], "Description 1")
+
+    def test_invalid_photo_does_not_create_run(self):
+        for value in ("", "invalid!", base64.b64encode(b"not an image").decode()):
+            with self.assertRaises(ValueError):
+                self.app.start({"input_type": "photo", "photo": value})
+        self.assertEqual(self.app.runs(), [])
+        with self.assertRaises(ValueError):
+            self.app.start({"input_type": "unknown", "prompt": "hello"})
+        simulated = Installation(self.tmp.name, demo=True)
+        with self.assertRaises(ValueError):
+            simulated.start({"input_type": "photo", "photo": ""})
+
     def test_feedback_and_seed_sequence(self):
         run = self.run_chain()
         self.assertEqual(self.adapter.inputs, ["SECRET_ORIGINAL_PROMPT", "Description 1", "Description 2"])
